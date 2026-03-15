@@ -160,10 +160,10 @@ async function submitForm() {
 
   try {
     const res = await fetch('https://ashash999.app.n8n.cloud/webhook/book-appointment', {
-  method: 'POST',
-  headers: { 'Content-Type': 'text/plain' },
-  body: JSON.stringify({ name, phone, date, complaint, timeslot: slot })
-});
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, phone, date, complaint, timeslot: slot })
+    });
     const data = await res.json();
 
     if (data.success) {
