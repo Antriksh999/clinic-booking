@@ -133,6 +133,27 @@ slots.forEach(s => {
 const today = new Date().toISOString().split('T')[0];
 document.getElementById('f-date').min = today;
 
+// ✅ NEW: Reset function
+function resetForm() {
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-phone').value = '';
+  document.getElementById('f-complaint').value = '';
+  document.getElementById('f-date').value = '';
+  document.getElementById('f-slot').value = '';
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+
+  const msg = document.getElementById('status-msg');
+  msg.className = 'status-msg';
+  msg.textContent = '';
+
+  const box = document.getElementById('token-box');
+  box.classList.remove('show');
+
+  const btn = document.getElementById('submit-btn');
+  btn.textContent = 'Confirm Appointment';
+  btn.onclick = submitForm;
+}
+
 async function submitForm() {
   const name = document.getElementById('f-name').value.trim();
   const phone = document.getElementById('f-phone').value.trim();
@@ -160,9 +181,9 @@ async function submitForm() {
 
   try {
     const res = await fetch('https://ashash999.app.n8n.cloud/webhook/book-appointment', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, phone, date, complaint, timeslot: slot })
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, date, complaint, timeslot: slot })
     });
     const data = await res.json();
 
@@ -173,7 +194,10 @@ async function submitForm() {
       box.classList.add('show');
       document.getElementById('token-val').textContent = data.token || '—';
       document.getElementById('token-meta').textContent = date + ' at ' + slot + (data.valid_till ? ' · Valid till ' + data.valid_till : '');
-      btn.textContent = 'Booked!';
+      // ✅ CHANGED: re-enable button for new booking
+      btn.disabled = false;
+      btn.textContent = 'Book Another Appointment';
+      btn.onclick = resetForm;
     } else {
       msg.className = 'status-msg error';
       msg.textContent = data.message || 'Something went wrong. Please try again.';
