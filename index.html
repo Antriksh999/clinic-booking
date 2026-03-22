@@ -335,12 +335,13 @@ body{
         <span class="status-dot"></span>
         <span class="ai-label">Online</span>
       </div>
-      <span class="ai-model-badge">Groq / LLaMA</span>
+      <!-- lang indicator only — no model name exposed -->
+      <span class="ai-model-badge" id="lang-indicator">हिंदी</span>
     </div>
 
     <div class="ai-panel-title">
-      <strong>Book appointment via voice or text.</strong><br/>
-      Hindi, English — sab chalega.
+      <strong id="panel-title-strong">अपॉइंटमेंट बुक करें — बोलकर या टाइप करके।</strong><br/>
+      <span id="panel-title-sub">भाषा बदलने के लिए नीचे HI / EN दबाएं।</span>
     </div>
 
     <div class="chat-msgs" id="chat-msgs">
@@ -352,7 +353,7 @@ body{
         <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
       </button>
       <input class="chat-input" id="chat-input"
-             placeholder="Type here or use mic..."
+             placeholder="यहाँ टाइप करें या माइक दबाएं..."
              onkeydown="if(event.key==='Enter')sendMsg()"/>
       <button class="btn-send" onclick="sendMsg()" title="Send">
         <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -568,8 +569,14 @@ function showTokenCard(data) {
 
 /* ═══════════════════════════════════════════
    SEND MESSAGE  →  AI AGENT WEBHOOK
+
+   DESIGN RULE:
+   - "lang" is sent as its own JSON field ONLY.
+   - It is NEVER injected into message text or history.
+   - The n8n system prompt reads $json.body.lang directly.
+   - This prevents the AI from ever echoing [LANG:...] back.
 ═══════════════════════════════════════════ */
-let isBotSpeaking = false;   /* used to block mic while bot speaks */
+let isBotSpeaking = false;
 
 async function sendMsg() {
   const input = document.getElementById('chat-input');
@@ -577,36 +584,35 @@ async function sendMsg() {
   if (!text) return;
   input.value = '';
 
-  /* Stop mic while we wait for reply */
   pauseMicForReply();
 
   addMsg(text, 'user');
   chatHistory.push({ role:'user', content:text });
   showThinking(true);
 
-  const now   = new Date();
-  const today = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  const now      = new Date();
+  const today    = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  const langCode = (LANG_UI[micLang] || LANG_UI['en-US']).langCode;  /* 'hindi' | 'english' */
 
-  /* ── Fetch available slots to include in context ── */
-  /* We'll pass them so the AI only suggests non-full ones */
-  let availableSlots = ALL_SLOTS.slice(); /* default all */
+  /* Fetch available slots silently — send date-specific availability */
+  let availableSlots = ALL_SLOTS.slice();
   try {
     const sr = await fetch(SLOTS_WEBHOOK + '?date=' + today);
     const sd = await sr.json();
     const counts = sd.slots || {};
     availableSlots = ALL_SLOTS.filter(s => (counts[s] || 0) < MAX_PER_SLOT);
-  } catch(e) { /* keep all if endpoint not ready */ }
+  } catch(e) {}
 
   try {
     const res = await fetch(AI_WEBHOOK, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        message:         text,
+        message:         text,           /* clean user text — no tags injected */
         history:         chatHistory,
         today:           today,
         available_slots: availableSlots,
-        lang:            micLang === 'hi-IN' ? 'hindi' : 'english'  /* ← STRICT language instruction */
+        lang:            langCode        /* 'hindi' or 'english' — read by system prompt */
       })
     });
 
@@ -615,28 +621,38 @@ async function sendMsg() {
     try { data = JSON.parse(raw); } catch(e) { data = { reply: raw }; }
 
     showThinking(false);
-    const reply = data.reply || data.output || data.message || 'Kuch error hua. Dobara try karein.';
+
+    let reply = data.reply || data.output || data.message || (
+      langCode === 'hindi' ? 'Kuch error hua. Dobara try karein.' : 'Something went wrong. Please try again.'
+    );
+
+    /* Strip any control tags the AI accidentally includes in its response */
+    reply = reply
+      .replace(/\[LANG:[^\]]*\]/gi, '')
+      .replace(/^[\s\n]+/, '')
+      .trim();
+
     addMsg(reply, 'bot');
     chatHistory.push({ role:'assistant', content:reply });
 
-    /* Show slot-full notice if AI mentions it */
     const notice = document.getElementById('chat-notice');
     if (data.slot_full) {
-      notice.textContent = 'Selected slot is full. Only available slots are shown below.';
+      notice.textContent = langCode === 'hindi'
+        ? 'यह slot भरा हुआ है। नीचे उपलब्ध slots देखें।'
+        : 'This slot is full. Please choose from available slots below.';
       notice.classList.add('show');
     } else {
       notice.classList.remove('show');
     }
 
-    /* Show token card if booking done */
     if (data.booked && data.token) showTokenCard(data);
-
-    /* ── Speak reply, then restart mic ── */
     speakThenMic(reply);
 
   } catch(err) {
     showThinking(false);
-    const errMsg = 'Server se connect nahi hua. Internet check karein.';
+    const errMsg = langCode === 'hindi'
+      ? 'Server se connect nahi hua. Internet check karein.'
+      : 'Could not connect to server. Please check your connection.';
     addMsg(errMsg, 'bot');
     speakThenMic(errMsg);
   }
@@ -660,16 +676,17 @@ let micPaused   = false;   /* true = paused while bot speaks */
 function updateMicUI() {
   const btn = document.getElementById('btn-mic');
   const lbl = document.getElementById('mic-lbl');
+  const ui  = LANG_UI[micLang] || LANG_UI['en-US'];
   btn.className = 'btn-mic';
   if (!micEnabled) {
     btn.classList.add('mic-off');
-    lbl.textContent = '○ MIC OFF'; lbl.className = 'mic-status-lbl';
+    lbl.textContent = ui.micOff; lbl.className = 'mic-status-lbl';
   } else if (micActive) {
     btn.classList.add('mic-listening');
-    lbl.textContent = '● LISTENING'; lbl.className = 'mic-status-lbl listening';
+    lbl.textContent = ui.micListen; lbl.className = 'mic-status-lbl listening';
   } else {
     btn.classList.add('mic-on');
-    lbl.textContent = '● MIC ON'; lbl.className = 'mic-status-lbl on';
+    lbl.textContent = ui.micOn; lbl.className = 'mic-status-lbl on';
   }
 }
 
@@ -739,19 +756,50 @@ function toggleMic() {
 /* Greeting text per language */
 const GREETINGS = {
   'hi-IN': 'Namaste! Aapka appointment book karne ke liye taiyaar hoon. Apna naam batayein.',
-  'en-US': 'Hello! I\'m here to help you book an appointment at VeloClinic. May I have your name?'
+  'en-US': 'Hello! I am here to help you book an appointment at VeloClinic. May I have your name please?'
+};
+
+/* All UI strings that must change when language switches */
+const LANG_UI = {
+  'hi-IN': {
+    badge:       'हिंदी',
+    titleStrong: 'अपॉइंटमेंट बुक करें — बोलकर या टाइप करके।',
+    titleSub:    'भाषा बदलने के लिए नीचे HI / EN दबाएं।',
+    placeholder: 'यहाँ टाइप करें या माइक दबाएं...',
+    micOn:       '● माइक चालू',
+    micOff:      '○ माइक बंद',
+    micListen:   '● सुन रहा हूँ...',
+    langCode:    'hindi'
+  },
+  'en-US': {
+    badge:       'English',
+    titleStrong: 'Book appointment — speak or type.',
+    titleSub:    'Switch language using HI / EN below.',
+    placeholder: 'Type here or use mic...',
+    micOn:       '● MIC ON',
+    micOff:      '○ MIC OFF',
+    micListen:   '● LISTENING',
+    langCode:    'english'
+  }
 };
 
 function setLang(lang, btnId) {
   micLang = lang;
+  const ui = LANG_UI[lang] || LANG_UI['en-US'];
 
-  /* ── Update lang button UI ── */
+  /* ── 1. Update button active state ── */
   document.getElementById('lang-hi').className = 'lang-btn' + (btnId === 'lang-hi' ? ' active' : '');
   document.getElementById('lang-en').className = 'lang-btn' + (btnId === 'lang-en' ? ' active' : '');
 
-  /* ── Clear entire conversation and start fresh in new language ──
-     This is the key fix: switching language resets context so AI
-     doesn't carry over Hindi history and default back to Hindi      */
+  /* ── 2. Update all UI text to match language ── */
+  document.getElementById('lang-indicator').textContent    = ui.badge;
+  document.getElementById('panel-title-strong').textContent = ui.titleStrong;
+  document.getElementById('panel-title-sub').textContent   = ui.titleSub;
+  document.getElementById('chat-input').placeholder        = ui.placeholder;
+
+  /* ── 3. Reset conversation entirely — fresh start in selected language.
+     This is the critical fix: old Hindi history must be wiped so the AI
+     does not carry prior context and default back to Hindi.             ── */
   chatHistory = [];
   const box = document.getElementById('chat-msgs');
   box.innerHTML = '';
@@ -760,12 +808,12 @@ function setLang(lang, btnId) {
   greet.textContent = GREETINGS[lang] || GREETINGS['en-US'];
   box.appendChild(greet);
 
-  /* ── Hide token card if visible ── */
+  /* ── 4. Hide any open cards ── */
   document.getElementById('chat-token').classList.remove('show');
   document.getElementById('chat-notice').classList.remove('show');
 
-  /* ── Restart mic with new language ── */
-  if (micEnabled) { stopMic(); setTimeout(startMic, 200); }
+  /* ── 5. Restart mic in new language ── */
+  if (micEnabled) { stopMic(); setTimeout(startMic, 250); }
 }
 
 /* Auto-start mic on page load */
@@ -775,50 +823,73 @@ window.addEventListener('load', () => {
 
 /* ═══════════════════════════════════════════
    TTS — speak bot replies
-   FIX: Use CORRECT language codes
-        hi-IN → Hindi voice
-        en-US → English (US) voice — NOT Hindi with English accent
-   FIX: Stop mic BEFORE speaking, restart AFTER
+   Rules:
+   1. Strip internal [LANG:] tags before speaking (never read them aloud)
+   2. Pick correct voice — hi-IN for Hindi, en-US/en-GB for English
+   3. Resume mic only after TTS fully ends + 900ms buffer
+      (short delay caused mic to catch audio tail of its own voice)
 ═══════════════════════════════════════════ */
+
+/* Voices may not be loaded on first call — cache them */
+let _voices = [];
+function getVoices() {
+  if (_voices.length) return _voices;
+  _voices = speechSynthesis.getVoices();
+  return _voices;
+}
+if (speechSynthesis.onvoiceschanged !== undefined) {
+  speechSynthesis.onvoiceschanged = () => { _voices = speechSynthesis.getVoices(); };
+}
+
+function stripInternalTags(text) {
+  /* Remove [LANG: ...] and similar control tags the AI might echo */
+  return text.replace(/\[LANG:\s*\w+\]/gi, '').trim();
+}
+
 function speakThenMic(text) {
   if (!window.speechSynthesis) { resumeMic(); return; }
 
+  const cleanText = stripInternalTags(text);
+  if (!cleanText) { resumeMic(); return; }
+
   window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
 
-  /* ── Pick voice correctly ──
-     For Hindi mic mode → use hi-IN voice (speaks Hindi)
-     For English mic mode → use en-US voice (speaks English in US accent)
-     This is the fix for "English button still speaks Hindi accent"  */
-  const targetLang = micLang; /* matches what user selected */
-  u.lang = targetLang;
-  u.rate = 0.88;
+  /* Small delay so cancel() fully flushes before we queue new utterance */
+  setTimeout(() => {
+    const u = new SpeechSynthesisUtterance(cleanText);
+    u.rate = 0.88;
 
-  const voices = speechSynthesis.getVoices();
+    const voices = getVoices();
+    let voice = null;
 
-  let voice = null;
-  if (targetLang === 'hi-IN') {
-    /* Priority: exact hi-IN → any hi- → fallback */
-    voice = voices.find(v => v.lang === 'hi-IN')
-         || voices.find(v => v.lang.startsWith('hi'));
-  } else {
-    /* English mode: use en-US or en-GB — NOT hi-IN */
-    voice = voices.find(v => v.lang === 'en-US')
-         || voices.find(v => v.lang === 'en-GB')
-         || voices.find(v => v.lang.startsWith('en'));
-  }
-  if (voice) u.voice = voice;
+    if (micLang === 'hi-IN') {
+      voice = voices.find(v => v.lang === 'hi-IN')
+           || voices.find(v => v.lang.startsWith('hi'));
+      u.lang = 'hi-IN';
+    } else {
+      /* Strictly English — never pick a Hindi voice even if no en-US found */
+      voice = voices.find(v => v.lang === 'en-US' && !v.name.toLowerCase().includes('india'))
+           || voices.find(v => v.lang === 'en-GB')
+           || voices.find(v => v.lang === 'en-AU')
+           || voices.find(v => v.lang.startsWith('en') && !v.name.toLowerCase().includes('india'));
+      u.lang = 'en-US';
+    }
+    if (voice) u.voice = voice;
 
-  u.onstart = () => { isBotSpeaking = true; };
-  u.onend   = () => { isBotSpeaking = false; resumeMic(); };
-  u.onerror = () => { isBotSpeaking = false; resumeMic(); };
+    u.onstart = () => { isBotSpeaking = true; };
+    u.onend   = () => {
+      isBotSpeaking = false;
+      /* 900ms buffer — gives audio pipeline time to fully flush
+         before mic opens, preventing self-echo                   */
+      setTimeout(resumeMic, 900);
+    };
+    u.onerror = () => {
+      isBotSpeaking = false;
+      setTimeout(resumeMic, 500);
+    };
 
-  speechSynthesis.speak(u);
-}
-
-/* Load voices (Chrome lazy-loads them) */
-if (speechSynthesis.onvoiceschanged !== undefined) {
-  speechSynthesis.onvoiceschanged = () => { speechSynthesis.getVoices(); };
+    speechSynthesis.speak(u);
+  }, 80);
 }
 
 /* ═══════════════════════════════════════════
