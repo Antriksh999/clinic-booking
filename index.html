@@ -231,37 +231,58 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 </div>
 
 <script>
+/* ═══════════════════════════════════════════════════════
+   VeloClinic Voice Assistant
+   Fixes: continuous mic (stays on until tap), full Hindi date words
+   (pachis march, teen april etc), auto-submit without button,
+   token shown in voice bubble, rebook intent detection, IST dates
+   ═══════════════════════════════════════════════════════ */
+const WEBHOOK='https://ashash999.app.n8n.cloud/webhook/book-appointment';
 const SLOTS=['9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM','12:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM','5:00 PM','5:30 PM'];
 const TAKEN=[];
+
 const grid=document.getElementById('slot-grid');
 SLOTS.forEach(s=>{
   const b=document.createElement('button');
   b.className='slot-btn'+(TAKEN.includes(s)?' taken':'');
   b.textContent=s;b.dataset.slot=s;
-  if(!TAKEN.includes(s))b.onclick=()=>{document.querySelectorAll('.slot-btn').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');document.getElementById('f-slot').value=s;};
+  if(!TAKEN.includes(s))b.onclick=()=>{
+    document.querySelectorAll('.slot-btn').forEach(x=>x.classList.remove('selected'));
+    b.classList.add('selected');document.getElementById('f-slot').value=s;
+  };
   grid.appendChild(b);
 });
-// FIX 1: Use local date format — toISOString() converts to UTC which shifts date in India (UTC+5:30)
+
+/* India-timezone-safe ISO date — never uses UTC */
+function localISO(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 document.getElementById('f-date').min=localISO(new Date());
 
-let lang='hi';
+/* State */
+let lang='hi',step=0,col={};
+let keepListening=false,micAllowed=false,started=false,pausedForTTS=false;
+
+/* Strings */
 const S={
   hi:{
-    start:'Namaste! Main aapki appointment book karwaunga. Pehle apna poora naam batayein.',
+    start:'Namaste! Main aapki appointment book karane mein madad karoonga. Pehle apna poora naam batayein.',
     askPhone:'Shukriya! Ab apna 10 digit mobile number bolein.',
-    askComplaint:'Kya takleef hai aaj? Jaise bukhar, sar dard, khansi, pet dard...',
-    askDate:'Kis din aana chahte hain? Kal, parson, ya koi date bolein.',
-    askSlot:'Achha! Subah ya dopahar ka time chahiye? Batayein — 9 baje, 10 baje, 2 baje...',
-    confirm:d=>`Summary check karein:\nNaam: ${d.name}\nPhone: ${d.phone}\nTakleef: ${d.complaint}\nDate: ${d.date}\nTime: ${d.slot}\n\nKya confirm karein?`,
-    booking:'Booking ho rahi hai, ek second...',
-    success:t=>`Mubarak ho! Token hai ${t}. Clinic mein dikhayein.`,
-    ePhone:'10 digit ka valid number bolein please.',
-    eName:'Naam samajh nahi aaya. Phir se bolein.',
+    askComplaint:'Kya takleef hai? Bukhar, sar dard, khansi, pet dard — kuch bhi bolein.',
+    askDate:'Kis date ko aana chahte hain? Jaise kal, parson, somwar, ya "paanch april" ya "25 march".',
+    askSlot:'Theek hai! Kaunsa time chahiye? Jaise nau baje, do baje, sham char baje.',
+    confirm:function(d){return 'Summary suniye:\nNaam: '+d.name+'\nPhone: '+d.phone+'\nTakleef: '+d.complaint+'\nDate: '+d.date+'\nTime: '+d.slot+'\n\nKya main book kar doon?';},
+    booking:'Bilkul! Booking ho rahi hai...',
+    success:function(t,dt,sl){return 'Mubarak ho! Appointment book ho gayi.\n\nToken: '+t+'\nDate: '+dt+'\nTime: '+sl+'\n\nYeh token clinic mein dikhayein.';},
+    ePhone:'10 digit ka valid number chahiye. Phir se bolein.',
+    eName:'Naam samajh nahi aaya. Clearly bolein.',
     eComplaint:'Takleef samajh nahi aayi. Bukhar, sar dard, ya kuch aur bolein.',
-    eDate:'Date samajh nahi aayi. Kal, somwar, ya March 25 jaise bolein.',
-    eSlot:'Time samajh nahi aaya. 9 baje, 10 baje jaise bolein.',
-    eTaken:'Woh time le liya gaya hai. Koi aur time chunein.',
-    restart:'Theek hai, dobara shuru karte hain. Naam batayein.',
+    eDate:'"Kal", "Somwar", ya "pachis march" jaise bolein.',
+    eSlot:'"Nau baje", "do baje", ya "sham char baje" jaise bolein.',
+    eTaken:'Yeh time pehle se booked hai. Koi aur time chunein.',
+    alreadyBooked:'Aapka iss number se appointment pehle se book hai. Kya naya slot book karna chahte hain?',
+    restart:'Theek hai, dobara shuru karte hain. Naam kya hai?',
+    intentAck:'Bilkul! Appointment book kar dunga. Pehle apna poora naam batayein.',
     chips_c:['Bukhar','Sar Dard','Khansi','Pet Dard','Kamar Dard','Check-up','BP Follow-up','Kuch aur'],
     chips_d:['Kal','Parson','Somwar','Mangalwar','Aaj'],
     chips_t:['9:00 AM','10:00 AM','11:00 AM','2:00 PM','3:00 PM','4:00 PM'],
@@ -269,20 +290,22 @@ const S={
   },
   en:{
     start:"Hello! I'll help you book an appointment. Please say your full name.",
-    askPhone:"Thank you! Now please say your 10-digit mobile number.",
-    askComplaint:"What is your main problem today? Like fever, headache, cough, stomach pain...",
-    askDate:"Which date would you like to come? Say tomorrow, Monday, or a date like March 25.",
-    askSlot:"Got it! Which time slot? Say 9 AM, 10 AM, 2 PM...",
-    confirm:d=>`Please check your summary:\nName: ${d.name}\nPhone: ${d.phone}\nProblem: ${d.complaint}\nDate: ${d.date}\nTime: ${d.slot}\n\nShall I confirm?`,
+    askPhone:"Thank you! Now say your 10-digit mobile number.",
+    askComplaint:"What is your problem? Fever, headache, cough, back pain — say anything.",
+    askDate:"Which date? Say tomorrow, Monday, or a date like March 25.",
+    askSlot:"Which time? Say 9 AM, 2 PM, or a similar time.",
+    confirm:function(d){return 'Summary:\nName: '+d.name+'\nPhone: '+d.phone+'\nProblem: '+d.complaint+'\nDate: '+d.date+'\nTime: '+d.slot+'\n\nShall I confirm?';},
     booking:"Booking now, please wait...",
-    success:t=>`Appointment confirmed! Your token is ${t}. Please show this at the clinic.`,
+    success:function(t,dt,sl){return 'Appointment confirmed!\n\nToken: '+t+'\nDate: '+dt+'\nTime: '+sl+'\n\nShow this token at the clinic.';},
     ePhone:"Please say a valid 10-digit phone number.",
-    eName:"I didn't catch your name. Please say it again.",
-    eComplaint:"What is your problem? Say fever, headache, cough, or another issue.",
-    eDate:"I didn't understand that date. Try tomorrow, Monday, or March 25.",
-    eSlot:"I didn't catch the time. Try 9 AM, 10 AM, or 2 PM.",
-    eTaken:"That slot is taken. Please pick another time.",
-    restart:"Okay, let's start over. Please say your name.",
+    eName:"I didn't catch your name. Say it clearly.",
+    eComplaint:"Say fever, headache, cough, or another issue.",
+    eDate:"Try tomorrow, Monday, or March 25.",
+    eSlot:"Say 9 AM, 2 PM, or a similar time.",
+    eTaken:"That slot is taken. Please choose another.",
+    alreadyBooked:"You already have an appointment with this number. Would you like to book a new slot?",
+    restart:"Let's start over. What is your name?",
+    intentAck:"Sure! Let me book an appointment. Please say your full name.",
     chips_c:['Fever','Headache','Cold & Cough','Stomach Pain','Back Pain','Check-up','BP Follow-up','Other'],
     chips_d:['Tomorrow','Day after','Monday','Tuesday','Today'],
     chips_t:['9:00 AM','10:00 AM','11:00 AM','2:00 PM','3:00 PM','4:00 PM'],
@@ -291,348 +314,522 @@ const S={
 };
 function g(){return S[lang];}
 
-const CM={'fever':'Fever','bukhar':'Fever','bukhaar':'Fever','tap':'Fever','temperature':'Fever','headache':'Headache','sar dard':'Headache','sir dard':'Headache','sirdard':'Headache','head ache':'Headache','stomach':'Stomach Pain','pet dard':'Stomach Pain','pet':'Stomach Pain','stomach pain':'Stomach Pain','abdominal':'Stomach Pain','cough':'Cold & Cough','cold':'Cold & Cough','khansi':'Cold & Cough','khasi':'Cold & Cough','zukam':'Cold & Cough','flu':'Cold & Cough','sardi':'Cold & Cough','back pain':'Back Pain','kamar':'Back Pain','back':'Back Pain','kamar dard':'Back Pain','chest':'Chest Pain','seena':'Chest Pain','chest pain':'Chest Pain','skin':'Skin Issue','rash':'Skin Issue','khujli':'Skin Issue','itching':'Skin Issue','eye':'Eye Problem','aankh':'Eye Problem','ear':'Ear Problem','kaan':'Ear Problem','diabetes':'Diabetes Follow-up','sugar':'Diabetes Follow-up','bp':'BP Follow-up','blood pressure':'BP Follow-up','pressure':'BP Follow-up','general':'General Check-up','checkup':'General Check-up','check up':'General Check-up','check-up':'General Check-up','jach':'General Check-up','routine':'General Check-up','other':'Other','kuch aur':'Other'};
+/* Complaint map */
+const CM={
+  'fever':'Fever','bukhar':'Fever','bukhaar':'Fever','tap':'Fever','temperature':'Fever',
+  'headache':'Headache','sar dard':'Headache','sir dard':'Headache','sirdard':'Headache',
+  'stomach pain':'Stomach Pain','pet dard':'Stomach Pain','pet':'Stomach Pain','stomach':'Stomach Pain',
+  'cough':'Cold & Cough','cold':'Cold & Cough','khansi':'Cold & Cough','khasi':'Cold & Cough',
+  'zukam':'Cold & Cough','flu':'Cold & Cough','sardi':'Cold & Cough',
+  'back pain':'Back Pain','kamar':'Back Pain','kamar dard':'Back Pain',
+  'chest':'Chest Pain','seena':'Chest Pain','chest pain':'Chest Pain',
+  'skin':'Skin Issue','rash':'Skin Issue','khujli':'Skin Issue','itching':'Skin Issue',
+  'eye':'Eye Problem','aankh':'Eye Problem','ear':'Ear Problem','kaan':'Ear Problem',
+  'diabetes':'Diabetes Follow-up','sugar':'Diabetes Follow-up',
+  'bp':'BP Follow-up','blood pressure':'BP Follow-up','pressure':'BP Follow-up',
+  'general':'General Check-up','checkup':'General Check-up','check up':'General Check-up',
+  'jach':'General Check-up','routine':'General Check-up','other':'Other','kuch aur':'Other'
+};
 
-const SpeechRec=window.SpeechRecognition||window.webkitSpeechRecognition;
-let rec=null,micOn=false,micAllowed=false,started=false;
-let step=0,col={};
+/* Booking intent phrases */
+const INTENTS=[
+  'appointment book','book appointment','appointment chahiye','appointment lena',
+  'doctor ke yahan','doctor ka number','number lagana','number lagao','number laga do',
+  'doctor se milna','appointment karni','appointment karna','booking karna',
+  'mujhe doctor','doctor dikhana','slot book','slot chahiye','milna hai doctor',
+  'i want appointment','i need appointment','book karna hai','appointment leni',
+  'number laganaa','doctor ke paas','doctor ke number'
+];
 
-function setLang(l){
-  lang=l;
-  document.getElementById('lang-hi').classList.toggle('active',l==='hi');
-  document.getElementById('lang-en').classList.toggle('active',l==='en');
-  if(rec)rec.lang=l==='hi'?'hi-IN':'en-IN';
+/* ═══════════════════════════
+   DATE PARSING
+   ═══════════════════════════ */
+
+/* Hindi day-of-month words sorted longest-first to avoid partial matches */
+var HDAY=[
+  ['ikattees',31],['ikathtees',31],['iktees',31],
+  ['untees',29],['unttees',29],['unattees',29],
+  ['atthaees',28],['atthais',28],
+  ['sattaees',27],['sataees',27],['sattais',27],
+  ['chabbees',26],['chabees',26],['chhabbees',26],
+  ['pachis',25],['pachchis',25],['pacheesi',25],['pachhis',25],['paanchees',25],
+  ['chaubees',24],['chauvees',24],
+  ['teis',23],['teeis',23],
+  ['baees',22],['bayees',22],['baaees',22],
+  ['ikkees',21],['ikees',21],['ikis',21],
+  ['bees',20],['bis',20],
+  ['unnees',19],['unnis',19],
+  ['atharah',18],['athaara',18],['athara',18],['atthara',18],
+  ['satrah',17],['satra',17],
+  ['solah',16],['sola',16],
+  ['pandrah',15],['panndrah',15],
+  ['chaudah',14],['chaudhah',14],
+  ['terah',13],['tera',13],
+  ['tees',30],['tis',30],
+  ['barah',12],['barha',12],
+  ['gyarah',11],['gyaraha',11],
+  ['das',10],
+  ['nau',9],['nava',9],['nao',9],
+  ['aath',8],['ath',8],
+  ['saat',7],['saath',7],
+  ['chhe',6],['chhah',6],['chha',6],
+  ['paanch',5],['panch',5],['paach',5],
+  ['char',4],['chaar',4],
+  ['teen',3],['tin',3],
+  ['do',2],
+  ['ek',1],['ik',1]
+];
+
+/* Month name to 0-based index */
+var MMAP=[
+  ['janwari',0],['jaanwari',0],['january',0],['jan',0],
+  ['farvari',1],['farwari',1],['pharvari',1],['february',1],['feb',1],
+  ['maarach',2],['maar',2],['march',2],['mar',2],
+  ['aprail',3],['april',3],['apr',3],
+  ['maai',4],['mai',4],['may',4],
+  ['june',5],['jun',5],
+  ['julai',6],['july',6],['jul',6],
+  ['agast',7],['agust',7],['august',7],['aug',7],
+  ['sitambar',8],['sitambhar',8],['september',8],['sept',8],['sep',8],
+  ['aktoobar',9],['aktubar',9],['october',9],['oct',9],
+  ['navambar',10],['navamber',10],['november',10],['nov',10],
+  ['disambar',11],['disamber',11],['december',11],['dec',11]
+];
+
+/* Time number words (used only for slot matching) */
+var TNUM={
+  'ek':1,'do':2,'teen':3,'char':4,'paanch':5,'chhe':6,'saat':7,'aath':8,'nau':9,'das':10,'gyarah':11,'barah':12,
+  'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,'nine':9,'ten':10,'eleven':11,'twelve':12
+};
+
+/* Devanagari digits to ASCII */
+function dev2asc(t){return t.replace(/[०-९]/g,function(d){return d.charCodeAt(0)-0x0966;});}
+
+/* Normalize date: replace Hindi day-words with digits */
+function normDate(raw){
+  var t=dev2asc(raw.toLowerCase());
+  for(var i=0;i<HDAY.length;i++){
+    var w=HDAY[i][0],n=HDAY[i][1];
+    t=t.replace(new RegExp('(?<![a-z])'+w+'(?![a-z])','g'),' '+n+' ');
+  }
+  return t;
 }
 
+/* Normalize time: replace Hindi time-words with digits */
+function normTime(raw){
+  var t=dev2asc(raw.toLowerCase());
+  for(var w in TNUM){
+    t=t.replace(new RegExp('\\b'+w+'\\b','gi'),' '+TNUM[w]+' ');
+  }
+  return t;
+}
+
+/* Parse spoken date string → YYYY-MM-DD (IST safe) */
+function parseD(raw){
+  var txt=dev2asc(raw.toLowerCase().trim());
+  var today=new Date();today.setHours(12,0,0,0);
+
+  /* Relative */
+  if(/\baaj\b/.test(txt)||txt.indexOf('today')>=0)return localISO(today);
+  if(/\bkal\b/.test(txt)||txt.indexOf('tomorrow')>=0||txt.indexOf('agle din')>=0){
+    var d=new Date(today);d.setDate(d.getDate()+1);return localISO(d);}
+  if(txt.indexOf('parson')>=0||txt.indexOf('day after')>=0){
+    var d=new Date(today);d.setDate(d.getDate()+2);return localISO(d);}
+
+  /* Day of week */
+  var DOW={sunday:0,somwar:1,monday:1,mangalwar:2,tuesday:2,budhwar:3,wednesday:3,
+           guruwar:4,brihaspatiwar:4,thursday:4,shukrawar:5,friday:5,shaniwar:6,saturday:6};
+  for(var k in DOW){
+    if(txt.indexOf(k)>=0){
+      var d=new Date(today);var df=(DOW[k]-d.getDay()+7)%7||7;d.setDate(d.getDate()+df);return localISO(d);
+    }
+  }
+
+  /* Normalize Hindi day-words to digits */
+  var norm=normDate(txt);
+
+  /* Month name + day digit */
+  for(var mi=0;mi<MMAP.length;mi++){
+    var mw=MMAP[mi][0],midx=MMAP[mi][1];
+    if(norm.indexOf(mw)>=0){
+      var nm=norm.match(/\b(\d{1,2})\b/);
+      if(nm){
+        var day=parseInt(nm[1]);
+        if(day>=1&&day<=31){
+          var d=new Date(today.getFullYear(),midx,day,12,0,0);
+          if(d<today)d.setFullYear(d.getFullYear()+1);
+          return localISO(d);
+        }
+      }
+    }
+  }
+
+  /* DD/MM or DD-MM */
+  var m2=norm.match(/\b(\d{1,2})[\/\-](\d{1,2})\b/);
+  if(m2){var d=new Date(today.getFullYear(),parseInt(m2[2])-1,parseInt(m2[1]),12,0,0);if(d<today)d.setFullYear(d.getFullYear()+1);return localISO(d);}
+
+  /* Single number — nearest future date */
+  var sn=norm.trim().match(/^(\d{1,2})$/);
+  if(sn){
+    var day=parseInt(sn[1]);
+    if(day>=1&&day<=31){
+      var d=new Date(today.getFullYear(),today.getMonth(),day,12,0,0);
+      if(d<today)d.setMonth(d.getMonth()+1);
+      return localISO(d);
+    }
+  }
+  return null;
+}
+
+/* Match spoken time to a slot */
+function matchS(raw){
+  var txt=raw.toLowerCase();
+  for(var i=0;i<SLOTS.length;i++){if(txt.indexOf(SLOTS[i].toLowerCase())>=0)return SLOTS[i];}
+  var norm=normTime(txt);
+  var m=norm.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|baje|baj)\b/i);
+  if(m){
+    var h=parseInt(m[1]),mn=parseInt(m[2]||'0');
+    var suf=(m[3]||'').toLowerCase();
+    if(suf==='pm'&&h!==12)h+=12;
+    if(suf==='am'&&h===12)h=0;
+    /* baje rule: 1-8 = afternoon PM, 9-12 = morning AM */
+    if(suf.indexOf('baj')===0&&h>=1&&h<=8)h+=12;
+    var target=h*60+mn,best=null,bd=21;
+    for(var j=0;j<SLOTS.length;j++){
+      var p=SLOTS[j].match(/(\d+):(\d+)\s*(AM|PM)/i);
+      var sh=parseInt(p[1]),sm=parseInt(p[2]);
+      if(p[3].toLowerCase()==='pm'&&sh!==12)sh+=12;
+      if(p[3].toLowerCase()==='am'&&sh===12)sh=0;
+      var diff=Math.abs(sh*60+sm-target);
+      if(diff<bd){bd=diff;best=SLOTS[j];}
+    }
+    if(best)return best;
+  }
+  if(txt.indexOf('subah')>=0||txt.indexOf('morning')>=0||txt.indexOf('savere')>=0)return'9:00 AM';
+  if(txt.indexOf('dopahar')>=0||txt.indexOf('noon')>=0||txt.indexOf('duphar')>=0)return'12:00 PM';
+  if(txt.indexOf('sham')>=0||txt.indexOf('evening')>=0||txt.indexOf('shyam')>=0)return'4:00 PM';
+  return null;
+}
+
+/* ═══════════════════════════
+   SPEECH RECOGNITION
+   keepListening=true  mic stays on
+   pausedForTTS=true   pauses during speech synthesis
+   ═══════════════════════════ */
+var SpeechRec=window.SpeechRecognition||window.webkitSpeechRecognition;
+var rec=null;
 if(SpeechRec){
   rec=new SpeechRec();
   rec.continuous=false;rec.interimResults=false;rec.lang='hi-IN';
-  rec.onresult=e=>{
-    const t=e.results[0][0].transcript;
-    setMicState(false);
+
+  rec.onresult=function(e){
+    var t=e.results[0][0].transcript.trim();
     addLog(t,'user');
-    setBubble(lang==='hi'?'Samajh raha hoon...':'Processing...',false);
-    setTimeout(()=>process(t),350);
+    setBubble(lang==='hi'?'Samajh raha hoon...':'Processing...');
+    setTimeout(function(){process(t);},300);
   };
-  rec.onend=()=>setMicState(false);
-  rec.onerror=e=>{
-    setMicState(false);
-    if(e.error==='not-allowed'){micAllowed=false;showPerm();}
-    else setBubble(lang==='hi'?'Sunne mein dikkat hui. Phir try karein.':'Could not hear. Please try again.',false);
+
+  /* Auto-restart after each utterance while keepListening */
+  rec.onend=function(){
+    if(keepListening&&micAllowed&&!pausedForTTS){
+      setTimeout(function(){try{rec.start();}catch(ex){}},150);
+    }
+  };
+
+  rec.onerror=function(e){
+    if(e.error==='not-allowed'){micAllowed=false;keepListening=false;setMicUI();showPerm();}
+    else if(e.error==='no-speech'){
+      if(keepListening&&!pausedForTTS)setTimeout(function(){try{rec.start();}catch(ex){}},200);
+    } else {
+      if(keepListening&&!pausedForTTS)setTimeout(function(){try{rec.start();}catch(ex){}},600);
+    }
   };
 }
 
+/* TTS — pauses mic, resumes after speaking */
 function speak(text){
   window.speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(text);
-  u.lang=lang==='hi'?'hi-IN':'en-IN';u.rate=0.93;u.pitch=1.0;
-  const vs=speechSynthesis.getVoices();
-  const pref=vs.find(v=>v.lang===(lang==='hi'?'hi-IN':'en-IN'))||vs.find(v=>v.lang.startsWith(lang==='hi'?'hi':'en'));
+  pausedForTTS=true;
+  try{if(rec)rec.stop();}catch(e){}
+  var u=new SpeechSynthesisUtterance(text.replace(/\n/g,'. '));
+  u.lang=lang==='hi'?'hi-IN':'en-IN';u.rate=0.92;u.pitch=1.0;
+  var vs=speechSynthesis.getVoices();
+  var pref=vs.find(function(v){return v.lang===u.lang;})||vs.find(function(v){return v.lang.indexOf(lang==='hi'?'hi':'en')===0;});
   if(pref)u.voice=pref;
+  var resume=function(){
+    pausedForTTS=false;
+    if(keepListening&&micAllowed)setTimeout(function(){try{rec.start();}catch(e){}},350);
+  };
+  var fl=setTimeout(resume,Math.max(text.length*80,3500));
+  u.onend=function(){clearTimeout(fl);resume();};
   speechSynthesis.speak(u);
 }
 
+/* Permission */
 function showPerm(){document.getElementById('perm-toast').classList.add('show');}
 function closePerm(){document.getElementById('perm-toast').classList.remove('show');}
 async function requestMicAndStart(){
   closePerm();
   try{
     await navigator.mediaDevices.getUserMedia({audio:true});
-    micAllowed=true;
-    startConvo();
+    micAllowed=true;startConvo();
   }catch(e){
-    micAllowed=false;
-    setBubble(lang==='hi'?'Mic access nahi mili. Browser settings mein allow karein.':'Mic access denied. Please allow in browser settings.',false);
+    setBubble(lang==='hi'?'Mic allow nahi hua. Browser settings mein allow karein.':'Mic denied. Allow in browser settings.');
   }
 }
 
+/* Mic toggle — stays on until patient taps again */
 function onMicClick(){
-  if(micOn){if(rec)try{rec.stop();}catch(e){}setMicState(false);return;}
-  if(!SpeechRec){setBubble('Please use Chrome browser for voice. / Chrome browser use karein.',false);return;}
+  if(keepListening){
+    keepListening=false;pausedForTTS=false;
+    try{rec.stop();}catch(e){}
+    setMicUI();return;
+  }
+  if(!SpeechRec){setBubble('Chrome browser use karein / Please use Chrome.');return;}
   if(!started){
     if(navigator.permissions){
-      navigator.permissions.query({name:'microphone'}).then(r=>{
+      navigator.permissions.query({name:'microphone'}).then(function(r){
         if(r.state==='granted'){micAllowed=true;startConvo();}
         else showPerm();
-      }).catch(()=>showPerm());
+      }).catch(function(){showPerm();});
     } else showPerm();
   } else {
-    startListen();
+    keepListening=true;setMicUI();
+    try{rec.start();}catch(e){}
   }
 }
 
 function startConvo(){
-  started=true;
-  document.getElementById('transcript').classList.add('open');
+  started=true;keepListening=true;
   step=0;col={};updateProg(0);
-  const m=g().start;
-  setBubble(m,false);addLog(m,'bot');speak(m);
-  setMicLabel(lang==='hi'?'Sun raha hoon...':'Listening...');
-  setTimeout(()=>startListen(),1400);
+  document.getElementById('transcript').classList.add('open');
+  setMicUI();
+  var m=g().start;
+  addLog(m,'bot');setBubble(m);speak(m);
 }
 
-function startListen(){
-  if(!rec||!micAllowed)return;
-  try{rec.start();setMicState(true);}catch(e){}
+/* UI helpers */
+function setLang(l){
+  lang=l;
+  document.getElementById('lang-hi').classList.toggle('active',l==='hi');
+  document.getElementById('lang-en').classList.toggle('active',l==='en');
+  if(rec)rec.lang=l==='hi'?'hi-IN':'en-IN';
 }
-
-function setMicState(on){
-  micOn=on;
-  const btn=document.getElementById('mic-btn');
-  btn.classList.toggle('listening',on);
-  setMicLabel(on?(lang==='hi'?'Sun raha hoon...':'Listening...'):(lang==='hi'?'Tap karein':'Tap to speak'));
+function setMicUI(){
+  document.getElementById('mic-btn').classList.toggle('listening',keepListening);
+  document.getElementById('mic-btn').classList.remove('thinking');
+  document.getElementById('mic-label').textContent=keepListening
+    ?(lang==='hi'?'Band karne ke liye tap karein':'Tap to stop')
+    :(lang==='hi'?'Tap karein':'Tap to speak');
 }
-
-function setMicLabel(t){document.getElementById('mic-label').textContent=t;}
-
-function setBubble(text,doSpeak){
-  const b=document.getElementById('vh-bubble');
-  b.className='vh-bubble';b.textContent=text;
-  if(doSpeak)speak(text);
+function setBubble(text){
+  var b=document.getElementById('vh-bubble');
+  b.className='vh-bubble';b.style.whiteSpace='pre-line';b.textContent=text;
 }
-function setBubbleListening(){
-  const b=document.getElementById('vh-bubble');
-  b.className='vh-bubble';
-  b.innerHTML='<div class="listening-anim"><span></span><span></span><span></span><span></span><span></span></div>';
-}
-
 function setChips(arr){
-  const c=document.getElementById('chips-row');c.innerHTML='';
-  arr.forEach(ch=>{
-    const btn=document.createElement('button');
-    btn.className='chip';btn.textContent=ch;
-    btn.onclick=()=>{addLog(ch,'user');setChips([]);process(ch);};
+  var c=document.getElementById('chips-row');c.innerHTML='';
+  arr.forEach(function(ch){
+    var btn=document.createElement('button');btn.className='chip';btn.textContent=ch;
+    btn.onclick=function(){addLog(ch,'user');setChips([]);process(ch);};
     c.appendChild(btn);
   });
 }
-
 function addLog(text,who){
-  const el=document.getElementById('transcript-inner');
-  const d=document.createElement('div');
-  d.className='t-line '+who;
-  d.innerHTML='<span class="t-role">'+(who==='bot'?'Bot:':'You:')+'</span><span>'+text+'</span>';
+  var el=document.getElementById('transcript-inner');
+  var d=document.createElement('div');d.className='t-line '+who;
+  d.innerHTML='<span class="t-role">'+(who==='bot'?'Bot:':'You:')+'</span><span>'+text.substring(0,120)+'</span>';
   el.appendChild(d);el.scrollTop=el.scrollHeight;
 }
-
-const PNAMES=['name','phone','complaint','date','slot','confirm'];
+function bot(text){setBubble(text);addLog(text,'bot');speak(text);}
+function fill(id,val){var el=document.getElementById(id);el.value=val;el.classList.add('vf');}
+function setsel(id,val){var el=document.getElementById(id);for(var i=0;i<el.options.length;i++){if(el.options[i].text===val){el.selectedIndex=i;break;}}el.classList.add('vf');}
+function selSlot(sl){document.querySelectorAll('.slot-btn').forEach(function(b){b.classList.remove('selected');if(b.dataset.slot===sl)b.classList.add('selected');});document.getElementById('f-slot').value=sl;}
+function cap(s){return s.replace(/\b\w/g,function(c){return c.toUpperCase();});}
+var PNAMES=['name','phone','complaint','date','slot','confirm'];
 function updateProg(n){
-  for(let i=0;i<6;i++){
-    const ps=document.getElementById('ps-'+i);
-    const dot=ps.querySelector('.prog-dot');
+  for(var i=0;i<6;i++){
+    var ps=document.getElementById('ps-'+i),dot=ps.querySelector('.prog-dot');
     ps.classList.remove('done','active');dot.classList.remove('done','active');
     if(i<n){ps.classList.add('done');dot.classList.add('done');}
     else if(i===n){ps.classList.add('active');dot.classList.add('active');}
   }
 }
 
+/* ═══════════════════════════
+   MAIN CONVERSATION PROCESS
+   ═══════════════════════════ */
 function process(raw){
-  const txt=raw.toLowerCase().trim();
+  var txt=raw.toLowerCase().trim();
   setChips([]);
 
+  /* Booking intent detection — works at any step */
+  var isIntent=INTENTS.some(function(p){return txt.indexOf(p)>=0;});
+  if(isIntent&&(step===0||step>=6)){
+    col={};step=0;updateProg(0);bot(g().intentAck);return;
+  }
+
+  /* NAME */
   if(PNAMES[step]==='name'){
-    const name=raw.trim().replace(/^(mera naam|my name is|i am|i'm|this is|naam hai|naam)\s*/i,'').trim();
-    if(name.length<2){bot(g().eName);startListen();return;}
+    if(isIntent){col={};bot(g().intentAck);return;}
+    var name=raw.trim().replace(/^(mera naam|my name is|i am|i'm|this is|naam hai|naam|main|mera)\s*/i,'').trim();
+    if(name.length<2||/^\d+$/.test(name)){bot(g().eName);return;}
     col.name=cap(name);fill('f-name',col.name);
-    bot(g().askPhone);step=1;updateProg(1);setTimeout(()=>startListen(),1000);return;
+    step=1;updateProg(1);bot(g().askPhone);return;
   }
 
+  /* PHONE */
   if(PNAMES[step]==='phone'){
-    const d=txt.replace(/\D/g,'').slice(-10);
-    if(d.length!==10){bot(g().ePhone);startListen();return;}
-    col.phone=d;fill('f-phone',d);
-    bot(g().askComplaint);setChips(g().chips_c);step=2;updateProg(2);setTimeout(()=>startListen(),1000);return;
+    var digits=dev2asc(txt).replace(/\D/g,'').slice(-10);
+    if(digits.length!==10){bot(g().ePhone);return;}
+    col.phone=digits;fill('f-phone',digits);
+    step=2;updateProg(2);setChips(g().chips_c);bot(g().askComplaint);return;
   }
 
+  /* COMPLAINT */
   if(PNAMES[step]==='complaint'){
-    let found=null;
-    for(const[k,v] of Object.entries(CM)){if(txt.includes(k)){found=v;break;}}
+    var found=null;
+    var cmkeys=Object.keys(CM);
+    for(var i=0;i<cmkeys.length;i++){if(txt.indexOf(cmkeys[i])>=0){found=CM[cmkeys[i]];break;}}
     if(!found&&txt.length>1)found='Other';
-    if(!found){bot(g().eComplaint);setChips(g().chips_c);startListen();return;}
+    if(!found){setChips(g().chips_c);bot(g().eComplaint);return;}
     col.complaint=found;setsel('f-complaint',found);
-    bot(g().askDate);setChips(g().chips_d);step=3;updateProg(3);setTimeout(()=>startListen(),1000);return;
+    step=3;updateProg(3);setChips(g().chips_d);bot(g().askDate);return;
   }
 
+  /* DATE */
   if(PNAMES[step]==='date'){
-    const dt=parseD(txt);
-    if(!dt){bot(g().eDate);setChips(g().chips_d);startListen();return;}
+    var dt=parseD(txt);
+    if(!dt){setChips(g().chips_d);bot(g().eDate);return;}
     col.date=dt;fill('f-date',dt);
-    bot(g().askSlot);setChips(g().chips_t);step=4;updateProg(4);setTimeout(()=>startListen(),1000);return;
+    step=4;updateProg(4);setChips(g().chips_t);bot(g().askSlot);return;
   }
 
+  /* SLOT */
   if(PNAMES[step]==='slot'){
-    const sl=matchS(txt);
-    if(!sl){bot(g().eSlot);setChips(g().chips_t);startListen();return;}
-    if(TAKEN.includes(sl)){bot(g().eTaken);setChips(g().chips_t);return;}
+    var sl=matchS(txt);
+    if(!sl){setChips(g().chips_t);bot(g().eSlot);return;}
+    if(TAKEN.indexOf(sl)>=0){setChips(g().chips_t);bot(g().eTaken);return;}
     col.slot=sl;selSlot(sl);
-    const sum=g().confirm(col);
-    bot(sum);setChips(g().chips_ok);step=5;updateProg(5);
-    // Enable mic so user can also say "haan" by voice to confirm
-    setTimeout(()=>startListen(),1800);
+    step=5;updateProg(5);setChips(g().chips_ok);
+    bot(g().confirm(col));
+    /* mic stays on — patient just says "haan" to auto-confirm */
     return;
   }
 
+  /* CONFIRM — AUTO-SUBMIT, no button click needed */
   if(PNAMES[step]==='confirm'){
-    // FIX 3: Expanded Hindi/English affirmative detection — "bilkul","ji","sahi","done","chalega" etc. all work now
-    const YES=['haan','yes','confirm','book','ok','theek','karo','ji','bilkul','sahi','done','correct','chalega','zaroor','haa','proceed','right','kar do','aage','sure'];
-    const isYes=YES.some(w=>txt.includes(w));
+    var YES=['haan','han','yes','confirm','book','ok','theek','karo','ji','bilkul','sahi',
+             'done','correct','chalega','zaroor','proceed','sure','kar do','aage','haa',
+             'absolutely','right','perfect','accha','hn','okay'];
+    var isYes=YES.some(function(w){return txt.indexOf(w)>=0;});
     if(isYes){
-      bot(g().booking,false);
+      setChips([]);step=6;
       document.getElementById('mic-btn').classList.add('thinking');
-      setMicLabel(lang==='hi'?'Booking...':'Booking...');
-      doBook();
+      document.getElementById('mic-label').textContent='Booking...';
+      addLog(g().booking,'bot');setBubble(g().booking);speak(g().booking);
+      setTimeout(function(){doBook();},900);
     } else {
-      bot(g().restart);col={};step=0;updateProg(0);setTimeout(()=>startListen(),1000);
+      col={};step=0;updateProg(0);bot(g().restart);
     }
     return;
   }
 }
 
-function bot(text,doSpeak=true){
-  setBubble(text,false);addLog(text,'bot');
-  if(doSpeak)speak(text.replace(/\n/g,', '));
-}
-
+/* ═══════════════════════════
+   BOOK — POST to n8n webhook
+   Token shown in voice bubble
+   ═══════════════════════════ */
 async function doBook(){
   try{
-    const res=await fetch('https://ashash999.app.n8n.cloud/webhook/book-appointment',{
+    var res=await fetch(WEBHOOK,{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name:col.name,phone:col.phone,date:col.date,complaint:col.complaint,timeslot:col.slot})
+      body:JSON.stringify({
+        name:col.name,
+        phone:col.phone,
+        date:col.date,     /* YYYY-MM-DD — no timezone issue */
+        complaint:col.complaint,
+        timeslot:col.slot
+      })
     });
-    const data=await res.json();
+    var data=await res.json();
     document.getElementById('mic-btn').classList.remove('thinking');
-    setMicLabel(lang==='hi'?'Tap karein':'Tap to speak');
+    setMicUI();
+
     if(data.success){
-      const m=g().success(data.token||'-');
-      bot(m);updateProg(6);
+      var token=data.token||'-';
+      var dt=col.date,sl=col.slot;
+
+      /* Token shown prominently in voice bubble */
+      var vm=g().success(token,dt,sl);
+      bot(vm);updateProg(6);
+
+      /* Also update form token box */
       document.getElementById('token-box').classList.add('show');
-      document.getElementById('token-val').textContent=data.token||'-';
-      document.getElementById('token-meta').textContent=col.date+' at '+col.slot+(data.valid_till?' | Valid till '+data.valid_till:'');
+      document.getElementById('token-val').textContent=token;
+      document.getElementById('token-meta').textContent=dt+' at '+sl+(data.valid_till?' | Valid till '+data.valid_till:'');
       document.getElementById('status-msg').className='status-msg success';
-      document.getElementById('status-msg').textContent=data.message||'Appointment confirmed!';
-      // FIX 4: Direct onclick handler — NOT process() — so chip text isn't parsed as patient name
-      const cr=document.getElementById('chips-row');cr.innerHTML='';
-      const nb=document.createElement('button');nb.className='chip';
+      document.getElementById('status-msg').textContent=data.message||'Appointment confirm ho gayi!';
+
+      /* Book another — direct onclick, NOT through process() */
+      var cr=document.getElementById('chips-row');cr.innerHTML='';
+      var nb=document.createElement('button');nb.className='chip';
       nb.textContent=lang==='hi'?'Doosra appointment book karein':'Book another appointment';
-      nb.onclick=()=>{
+      nb.onclick=function(){
+        ['f-name','f-phone','f-date'].forEach(function(id){var el=document.getElementById(id);el.value='';el.classList.remove('vf');});
+        document.getElementById('f-complaint').value='';document.getElementById('f-complaint').classList.remove('vf');
+        document.getElementById('f-slot').value='';document.querySelectorAll('.slot-btn').forEach(function(b){b.classList.remove('selected');});
+        document.getElementById('token-box').classList.remove('show');
+        document.getElementById('status-msg').className='status-msg';
         cr.innerHTML='';
-        step=0;col={};updateProg(0);
-        const startMsg=g().start;bot(startMsg);
-        setTimeout(()=>startListen(),1000);
+        col={};step=0;updateProg(0);bot(g().intentAck);
       };
       cr.appendChild(nb);
-      // step stays at current value — no reset here — only reset when "book another" is clicked
+      col={};/* clear data, step stays at 6 until button clicked */
+
     } else {
-      const m=data.message||(lang==='hi'?'Kuch galat hua. Dobara try karein.':'Something went wrong. Please try again.');
-      bot(m);step=4;
+      var errMsg=data.message||(lang==='hi'?'Kuch galat hua. Dobara try karein.':'Something went wrong. Please try again.');
+      /* Check if already booked */
+      var isAlready=(errMsg.toLowerCase().indexOf('already')>=0||
+                     errMsg.toLowerCase().indexOf('pehle se')>=0||
+                     errMsg.toLowerCase().indexOf('exist')>=0||
+                     errMsg.toLowerCase().indexOf('booked')>=0);
+      bot(isAlready?g().alreadyBooked:errMsg);
+      if(isAlready&&data.token){
+        document.getElementById('token-box').classList.add('show');
+        document.getElementById('token-val').textContent=data.token;
+        document.getElementById('token-meta').textContent=lang==='hi'?'Pehle se booked':'Previously booked';
+      }
+      step=4;setChips(g().chips_t);
     }
   }catch(e){
-    document.getElementById('mic-btn').classList.remove('thinking');
-    bot(lang==='hi'?'Server se connect nahi hua. Dobara try karein.':'Could not connect. Please try again.');
+    document.getElementById('mic-btn').classList.remove('thinking');setMicUI();
+    bot(lang==='hi'?'Server se connect nahi hua. Internet check karein.':'Could not connect. Check your internet.');
+    step=4;
   }
 }
 
-function fill(id,val){const el=document.getElementById(id);el.value=val;el.classList.add('vf');}
-function setsel(id,val){const el=document.getElementById(id);for(let i=0;i<el.options.length;i++){if(el.options[i].text===val){el.selectedIndex=i;break;}}el.classList.add('vf');}
-function selSlot(sl){document.querySelectorAll('.slot-btn').forEach(b=>{b.classList.remove('selected');if(b.dataset.slot===sl)b.classList.add('selected');});document.getElementById('f-slot').value=sl;}
-function cap(s){return s.replace(/\b\w/g,c=>c.toUpperCase());}
-
-// FIX 1: Local ISO — toISOString() uses UTC which shifts date in IST (UTC+5:30), e.g. midnight IST = prev day UTC
-function localISO(d){
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
-
-function parseD(txt){
-  const today=new Date();today.setHours(12,0,0,0); // use noon to avoid any midnight UTC edge
-  if(txt.includes('aaj')||txt.includes('today'))return localISO(today);
-  if(txt.includes('kal')||txt.includes('tomorrow')){const d=new Date(today);d.setDate(d.getDate()+1);return localISO(d);}
-  if(txt.includes('parson')||txt.includes('day after')){const d=new Date(today);d.setDate(d.getDate()+2);return localISO(d);}
-  const days={sunday:0,somwar:1,monday:1,mangalwar:2,tuesday:2,budhwar:3,wednesday:3,guruwar:4,thursday:4,shukrawar:5,friday:5,shaniwar:6,saturday:6};
-  for(const[k,v] of Object.entries(days)){if(txt.includes(k)){const d=new Date(today);const df=(v-d.getDay()+7)%7||7;d.setDate(d.getDate()+df);return localISO(d);}}
-  const months=['january','february','march','april','may','june','july','august','september','october','november','december'];
-  for(let m=0;m<months.length;m++){
-    if(txt.includes(months[m])){
-      const match=txt.match(/(\d{1,2})/);
-      if(match){
-        const d=new Date(today.getFullYear(),m,parseInt(match[1]),12,0,0);
-        if(d<today)d.setFullYear(d.getFullYear()+1);
-        return localISO(d);
-      }
-    }
-  }
-  const m2=txt.match(/(\d{1,2})[\/\-](\d{1,2})/);
-  if(m2){const d=new Date(today.getFullYear(),parseInt(m2[2])-1,parseInt(m2[1]),12,0,0);if(d<today)d.setFullYear(d.getFullYear()+1);return localISO(d);}
-  return null;
-}
-
-// FIX 2: Hindi number words → digits before matching
-// "do baje" → "2 baje", "nau baje" → "9 baje", "gyarah baje" → "11 baje" etc.
-const HINDI_NUMS={
-  '\\bek\\b':1,'\\bdo\\b':2,'\\bteen\\b':3,'\\bchar\\b':4,'\\bpaanch\\b':5,
-  '\\bchhe\\b':6,'\\bsaat\\b':7,'\\baath\\b':8,'\\bnau\\b':9,
-  '\\bdas\\b':10,'\\bgyarah\\b':11,'\\bbarah\\b':12,
-  '\\bone\\b':1,'\\btwo\\b':2,'\\bthree\\b':3,'\\bfour\\b':4,'\\bfive\\b':5,
-  '\\bsix\\b':6,'\\bseven\\b':7,'\\beight\\b':8,'\\bnine\\b':9,
-  '\\bten\\b':10,'\\beleven\\b':11,'\\btwelve\\b':12
-};
-function normalizeSpeech(txt){
-  let t=txt;
-  for(const[pat,num] of Object.entries(HINDI_NUMS)){t=t.replace(new RegExp(pat,'g'),num+' ');}
-  return t;
-}
-
-function matchS(txt){
-  const n=normalizeSpeech(txt); // convert Hindi/English number words to digits
-  // Direct slot text match
-  for(const s of SLOTS){if(n.includes(s.toLowerCase())||txt.includes(s.toLowerCase()))return s;}
-  // Regex: digit + optional minutes + AM/PM/baje
-  const m=n.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|baje|baj)/i);
-  if(m){
-    let h=parseInt(m[1]),mn=parseInt(m[2]||'0');
-    const suf=(m[3]||'').toLowerCase().replace('.','');
-    if(suf==='pm'&&h!==12)h+=12;
-    if(suf==='am'&&h===12)h=0;
-    // "baje" rule: clinic is 9AM–5:30PM. Hours 1–8 with "baje" = PM. Hours 9–12 = AM (morning)
-    if(suf.startsWith('baj')&&h<=8)h+=12;
-    const target=h*60+mn;
-    let best=null,bestDiff=21;
-    for(const sl of SLOTS){
-      const p=sl.match(/(\d+):(\d+)\s*(AM|PM)/i);
-      let sh=parseInt(p[1]),sm=parseInt(p[2]);
-      if(p[3].toLowerCase()==='pm'&&sh!==12)sh+=12;
-      if(p[3].toLowerCase()==='am'&&sh===12)sh=0;
-      const diff=Math.abs(sh*60+sm-target);
-      if(diff<bestDiff){bestDiff=diff;best=sl;}
-    }
-    if(best)return best;
-  }
-  // Keyword fallbacks
-  if(txt.includes('subah')||txt.includes('morning')||txt.includes('suba')||txt.includes('savere'))return '9:00 AM';
-  if(txt.includes('dopahar')||txt.includes('noon')||txt.includes('duphar')||txt.includes('lunch'))return '12:00 PM';
-  if(txt.includes('sham')||txt.includes('evening')||txt.includes('shyam'))return '4:00 PM';
-  return null;
-}
-
+/* Manual form submit */
 function resetForm(){
-  ['f-name','f-phone','f-date'].forEach(id=>{const el=document.getElementById(id);el.value='';el.classList.remove('vf');});
+  ['f-name','f-phone','f-date'].forEach(function(id){var el=document.getElementById(id);el.value='';el.classList.remove('vf');});
   document.getElementById('f-complaint').value='';document.getElementById('f-complaint').classList.remove('vf');
-  document.getElementById('f-slot').value='';document.querySelectorAll('.slot-btn').forEach(b=>b.classList.remove('selected'));
-  const m=document.getElementById('status-msg');m.className='status-msg';m.textContent='';
+  document.getElementById('f-slot').value='';document.querySelectorAll('.slot-btn').forEach(function(b){b.classList.remove('selected');});
+  var m=document.getElementById('status-msg');m.className='status-msg';m.textContent='';
   document.getElementById('token-box').classList.remove('show');
-  const btn=document.getElementById('submit-btn');btn.textContent='Appointment Confirm Karein';btn.onclick=submitForm;
+  var btn=document.getElementById('submit-btn');btn.textContent='Appointment Confirm Karein';btn.onclick=submitForm;
 }
 async function submitForm(){
-  const name=document.getElementById('f-name').value.trim();
-  const phone=document.getElementById('f-phone').value.trim();
-  const complaint=document.getElementById('f-complaint').value;
-  const date=document.getElementById('f-date').value;
-  const slot=document.getElementById('f-slot').value;
-  const msg=document.getElementById('status-msg'),btn=document.getElementById('submit-btn');
+  var name=document.getElementById('f-name').value.trim();
+  var phone=document.getElementById('f-phone').value.trim();
+  var complaint=document.getElementById('f-complaint').value;
+  var date=document.getElementById('f-date').value; /* input[type=date] always YYYY-MM-DD */
+  var slot=document.getElementById('f-slot').value;
+  var msg=document.getElementById('status-msg'),btn=document.getElementById('submit-btn');
   if(!name||!phone||!complaint||!date||!slot){msg.className='status-msg error';msg.textContent='Saare fields bharein aur ek time slot chunein.';return;}
   if(phone.length!==10||isNaN(phone)){msg.className='status-msg error';msg.textContent='10 digit ka valid number dalein.';return;}
   btn.disabled=true;btn.textContent='Booking...';msg.className='status-msg loading';msg.textContent='Appointment book ho rahi hai...';
   try{
-    const res=await fetch('https://ashash999.app.n8n.cloud/webhook/book-appointment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,date,complaint,timeslot:slot})});
-    const data=await res.json();
+    var res=await fetch(WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,phone:phone,date:date,complaint:complaint,timeslot:slot})});
+    var data=await res.json();
     if(data.success){
       msg.className='status-msg success';msg.textContent=data.message||'Appointment confirm ho gayi!';
       document.getElementById('token-box').classList.add('show');
@@ -648,7 +845,7 @@ async function submitForm(){
     btn.disabled=false;btn.textContent='Appointment Confirm Karein';
   }
 }
-speechSynthesis.onvoiceschanged=()=>{};
+speechSynthesis.onvoiceschanged=function(){};
 </script>
 </body>
 </html>
