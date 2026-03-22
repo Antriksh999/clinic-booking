@@ -124,6 +124,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .token-label{font-size:11px;color:var(--g3);font-weight:500;text-transform:uppercase;letter-spacing:0.6px}
 .token-value{font-family:'DM Serif Display',serif;font-size:34px;color:var(--g1);margin:2px 0 0}
 .token-meta{font-size:12px;color:var(--g3);margin-top:2px}
+
+/* Voice token card — lives inside voice hero */
+.v-token-card{display:none;margin-top:12px;background:rgba(255,255,255,0.13);border:1px solid rgba(255,255,255,0.3);border-radius:12px;padding:14px 16px;position:relative;z-index:1}
+.v-token-card.show{display:block;animation:msg-in 0.25s ease}
+@keyframes msg-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.v-token-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.v-token-label{font-size:10px;font-weight:500;color:rgba(255,255,255,0.6);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:3px}
+.v-token-num{font-family:'DM Serif Display',serif;font-size:36px;color:#fff;letter-spacing:1px;line-height:1}
+.v-token-check{width:36px;height:36px;border-radius:50%;background:var(--g4);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--g1);font-weight:700;flex-shrink:0}
+.v-token-detail{font-size:12.5px;color:rgba(255,255,255,0.85);line-height:1.7;border-top:0.5px solid rgba(255,255,255,0.15);padding-top:8px}
+.v-token-note{font-size:11.5px;color:rgba(255,255,255,0.55);margin-top:5px;font-style:italic}
 </style>
 </head>
 <body>
@@ -183,6 +194,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 
     <div class="chips-row" id="chips-row"></div>
     <div id="transcript" class="transcript"><div class="transcript-inner" id="transcript-inner"></div></div>
+
+    <!-- Voice-only token card — shown after voice booking succeeds -->
+    <div class="v-token-card" id="v-token-card">
+      <div class="v-token-row">
+        <div>
+          <div class="v-token-label">BOOKING TOKEN</div>
+          <div class="v-token-num" id="v-token-num">—</div>
+        </div>
+        <div class="v-token-check">&#10003;</div>
+      </div>
+      <div class="v-token-detail" id="v-token-detail"></div>
+      <div class="v-token-note" id="v-token-note"></div>
+    </div>
   </div>
 
   <div class="divider-or">ya khud fill karein &nbsp;/&nbsp; or fill manually</div>
@@ -673,7 +697,7 @@ function process(raw){
     if(isIntent){col={};bot(g().intentAck);return;}
     var name=raw.trim().replace(/^(mera naam|my name is|i am|i'm|this is|naam hai|naam|main|mera)\s*/i,'').trim();
     if(name.length<2||/^\d+$/.test(name)){bot(g().eName);return;}
-    col.name=cap(name);fill('f-name',col.name);
+    col.name=cap(name);
     step=1;updateProg(1);bot(g().askPhone);return;
   }
 
@@ -681,7 +705,7 @@ function process(raw){
   if(PNAMES[step]==='phone'){
     var digits=dev2asc(txt).replace(/\D/g,'').slice(-10);
     if(digits.length!==10){bot(g().ePhone);return;}
-    col.phone=digits;fill('f-phone',digits);
+    col.phone=digits;
     step=2;updateProg(2);setChips(g().chips_c);bot(g().askComplaint);return;
   }
 
@@ -692,7 +716,7 @@ function process(raw){
     for(var i=0;i<cmkeys.length;i++){if(txt.indexOf(cmkeys[i])>=0){found=CM[cmkeys[i]];break;}}
     if(!found&&txt.length>1)found='Other';
     if(!found){setChips(g().chips_c);bot(g().eComplaint);return;}
-    col.complaint=found;setsel('f-complaint',found);
+    col.complaint=found;
     step=3;updateProg(3);setChips(g().chips_d);bot(g().askDate);return;
   }
 
@@ -700,7 +724,7 @@ function process(raw){
   if(PNAMES[step]==='date'){
     var dt=parseD(txt);
     if(!dt){setChips(g().chips_d);bot(g().eDate);return;}
-    col.date=dt;fill('f-date',dt);
+    col.date=dt;
     step=4;updateProg(4);setChips(g().chips_t);bot(g().askSlot);return;
   }
 
@@ -709,10 +733,9 @@ function process(raw){
     var sl=matchS(txt);
     if(!sl){setChips(g().chips_t);bot(g().eSlot);return;}
     if(TAKEN.indexOf(sl)>=0){setChips(g().chips_t);bot(g().eTaken);return;}
-    col.slot=sl;selSlot(sl);
+    col.slot=sl;
     step=5;updateProg(5);setChips(g().chips_ok);
     bot(g().confirm(col));
-    /* mic stays on — patient just says "haan" to auto-confirm */
     return;
   }
 
@@ -757,34 +780,41 @@ async function doBook(){
 
     if(data.success){
       var token=data.token||'-';
-      var dt=col.date,sl=col.slot;
+      var dt=col.date,sl=col.slot,nm=col.name,ph=col.phone,cp=col.complaint;
+      var vt=data.valid_till||'';
 
-      /* Token shown prominently in voice bubble */
-      var vm=g().success(token,dt,sl);
-      bot(vm);updateProg(6);
+      /* ── Show voice token card ── */
+      document.getElementById('v-token-num').textContent=token;
+      document.getElementById('v-token-detail').innerHTML=
+        '<b>'+nm+'</b> &nbsp;|&nbsp; '+ph+'<br>'+
+        (lang==='hi'?'Takleef':'Problem')+': '+cp+'<br>'+
+        (lang==='hi'?'Tarikh':'Date')+': '+dt+' &nbsp;|&nbsp; '+
+        (lang==='hi'?'Waqt':'Time')+': '+sl+
+        (vt?('<br>'+(lang==='hi'?'Valid till':'Valid till')+': '+vt):'');
+      document.getElementById('v-token-note').textContent=
+        lang==='hi'?'Yeh token clinic mein receptionist ko dikhayein.':'Show this token to the receptionist at the clinic.';
+      document.getElementById('v-token-card').classList.add('show');
 
-      /* Also update form token box */
-      document.getElementById('token-box').classList.add('show');
-      document.getElementById('token-val').textContent=token;
-      document.getElementById('token-meta').textContent=dt+' at '+sl+(data.valid_till?' | Valid till '+data.valid_till:'');
-      document.getElementById('status-msg').className='status-msg success';
-      document.getElementById('status-msg').textContent=data.message||'Appointment confirm ho gayi!';
+      /* ── Speak the token details ── */
+      var spoken=lang==='hi'
+        ?'Mubarak ho '+nm+'! Aapka token hai '+token+'. Tarikh '+dt+', waqt '+sl+'. Yeh token clinic mein dikhayein.'
+        :'Congratulations '+nm+'! Your token is '+token+'. Date '+dt+', time '+sl+'. Show this at the clinic.';
+      bot(spoken);
+      updateProg(6);
 
-      /* Book another — direct onclick, NOT through process() */
+      /* ── Book another chip ── */
       var cr=document.getElementById('chips-row');cr.innerHTML='';
       var nb=document.createElement('button');nb.className='chip';
       nb.textContent=lang==='hi'?'Doosra appointment book karein':'Book another appointment';
       nb.onclick=function(){
-        ['f-name','f-phone','f-date'].forEach(function(id){var el=document.getElementById(id);el.value='';el.classList.remove('vf');});
-        document.getElementById('f-complaint').value='';document.getElementById('f-complaint').classList.remove('vf');
-        document.getElementById('f-slot').value='';document.querySelectorAll('.slot-btn').forEach(function(b){b.classList.remove('selected');});
-        document.getElementById('token-box').classList.remove('show');
-        document.getElementById('status-msg').className='status-msg';
+        /* reset ONLY voice state — manual form is completely untouched */
+        document.getElementById('v-token-card').classList.remove('show');
         cr.innerHTML='';
-        col={};step=0;updateProg(0);bot(g().intentAck);
+        col={};step=0;updateProg(0);
+        bot(g().intentAck);
       };
       cr.appendChild(nb);
-      col={};/* clear data, step stays at 6 until button clicked */
+      col={};/* clear voice data; step stays 6 until chip clicked */
 
     } else {
       var errMsg=data.message||(lang==='hi'?'Kuch galat hua. Dobara try karein.':'Something went wrong. Please try again.');
@@ -795,9 +825,10 @@ async function doBook(){
                      errMsg.toLowerCase().indexOf('booked')>=0);
       bot(isAlready?g().alreadyBooked:errMsg);
       if(isAlready&&data.token){
-        document.getElementById('token-box').classList.add('show');
-        document.getElementById('token-val').textContent=data.token;
-        document.getElementById('token-meta').textContent=lang==='hi'?'Pehle se booked':'Previously booked';
+        document.getElementById('v-token-num').textContent=data.token;
+        document.getElementById('v-token-detail').textContent=lang==='hi'?'Pehle se booked hai':'Previously booked';
+        document.getElementById('v-token-note').textContent='';
+        document.getElementById('v-token-card').classList.add('show');
       }
       step=4;setChips(g().chips_t);
     }
