@@ -5,20 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>VeloClinic — Book Appointment</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --g1:#085041;--g2:#0F6E56;--g3:#1D9E75;--g4:#5DCAA5;--g5:#9FE1CB;--g6:#E1F5EE;
+  --g1:#085041;--g2:#0F6E56;--g3:#1D9E75;--g4:#5DCAA5;--g6:#E1F5EE;
   --r1:#A32D2D;--r2:#F09595;--r3:#FCEBEB;
   --bg:#F4F7F4;--card:#fff;
   --t1:#18201e;--t2:#4a5552;--t3:#8a9490;
-  --bd:rgba(0,0,0,0.09);--bd2:rgba(0,0,0,0.15);
-  --rr:10px;--rl:16px;
+  --bd:rgba(0,0,0,0.09);--rr:10px;--rl:16px;
 }
-html{scroll-behavior:smooth}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh}
-.page{max-width:520px;margin:0 auto;padding:2rem 1rem 4rem}
+.page{max-width:500px;margin:0 auto;padding:2rem 1rem 4rem}
+
+/* Logo */
 .logo{display:flex;align-items:center;gap:10px;margin-bottom:1.75rem}
 .logo-cross{width:30px;height:30px;position:relative;flex-shrink:0}
 .logo-cross::before,.logo-cross::after{content:'';position:absolute;background:var(--g2);border-radius:3px}
@@ -27,75 +27,53 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .logo-name{font-family:'DM Serif Display',serif;font-size:21px;color:var(--t1);letter-spacing:-0.3px}
 .logo-name span{color:var(--g2)}
 
-/* VOICE HERO */
-.voice-hero{background:linear-gradient(135deg,var(--g1) 0%,var(--g2) 60%,#1a8a6a 100%);border-radius:var(--rl);padding:1.5rem 1.5rem 1.25rem;margin-bottom:1.25rem;position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(15,110,86,0.28)}
-.voice-hero::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,0.06)}
-.voice-hero::after{content:'';position:absolute;bottom:-30px;left:30%;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.04)}
-.vh-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.15);border:0.5px solid rgba(255,255,255,0.25);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500;color:rgba(255,255,255,0.9);letter-spacing:0.4px;margin-bottom:10px}
-.vh-badge-dot{width:6px;height:6px;border-radius:50%;background:#5DCAA5;animation:blink 1.8s ease-in-out infinite}
+/* AI Assistant banner */
+.ai-banner{
+  background:linear-gradient(135deg,var(--g1) 0%,var(--g2) 60%,#1a8a6a 100%);
+  border-radius:var(--rl);padding:1.25rem 1.5rem;margin-bottom:1.25rem;
+  box-shadow:0 4px 18px rgba(15,110,86,0.26);position:relative;overflow:hidden
+}
+.ai-banner::before{content:'';position:absolute;top:-36px;right:-36px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,0.05)}
+.ai-banner-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.15);border:0.5px solid rgba(255,255,255,0.25);border-radius:20px;padding:3px 10px;font-size:10.5px;font-weight:500;color:rgba(255,255,255,0.9);letter-spacing:0.4px;margin-bottom:8px}
+.ai-dot{width:6px;height:6px;border-radius:50%;background:#5DCAA5;animation:blink 1.8s ease-in-out infinite;flex-shrink:0}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
-.vh-title{font-size:17px;font-weight:500;color:#fff;margin-bottom:5px;line-height:1.3}
-.vh-sub{font-size:12.5px;color:rgba(255,255,255,0.7);margin-bottom:1.1rem;line-height:1.5}
-.vh-sub b{color:rgba(255,255,255,0.9);font-weight:500}
-.lang-toggle{display:flex;gap:6px;margin-bottom:1.1rem}
-.lang-btn{padding:5px 14px;font-size:12px;font-family:'DM Sans',sans-serif;border-radius:20px;border:0.5px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.75);cursor:pointer;transition:all 0.15s;font-weight:400}
-.lang-btn.active{background:rgba(255,255,255,0.22);color:#fff;border-color:rgba(255,255,255,0.5);font-weight:500}
-.progress-bar{display:flex;align-items:center;gap:0;margin-bottom:1.1rem;background:rgba(255,255,255,0.08);border-radius:20px;padding:7px 12px;position:relative;z-index:1}
-.prog-step{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
-.prog-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.2);transition:all 0.3s}
-.prog-dot.done{background:var(--g4)}
-.prog-dot.active{background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,0.25)}
-.prog-label{font-size:9px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.3px}
-.prog-step.done .prog-label{color:var(--g5)}
-.prog-step.active .prog-label{color:#fff}
-.prog-line{width:100%;height:0.5px;background:rgba(255,255,255,0.15);flex-shrink:0;margin-bottom:11px}
-.vh-row{display:flex;align-items:center;gap:14px;position:relative;z-index:1}
-.mic-btn{width:62px;height:62px;flex-shrink:0;border-radius:50%;background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.35);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;backdrop-filter:blur(4px)}
-.mic-btn:hover{background:rgba(255,255,255,0.25);transform:scale(1.05)}
-.mic-btn.listening{background:rgba(220,38,38,0.7);border-color:rgba(255,100,100,0.8);animation:mic-pulse 1.2s ease-out infinite}
-@keyframes mic-pulse{0%{box-shadow:0 0 0 0 rgba(220,38,38,0.5)}70%{box-shadow:0 0 0 18px rgba(220,38,38,0)}100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}}
-.mic-btn.thinking{background:rgba(255,180,0,0.35);border-color:rgba(255,200,0,0.7)}
-.mic-icon{width:28px;height:28px;fill:#fff}
-.mic-label{font-size:11px;color:rgba(255,255,255,0.6);margin-top:5px;text-align:center}
-.mic-wrap{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
-.vh-right{flex:1}
-.vh-bubble{background:rgba(255,255,255,0.12);border:0.5px solid rgba(255,255,255,0.2);border-radius:12px;padding:11px 14px;font-size:13px;color:#fff;line-height:1.55;min-height:52px;backdrop-filter:blur(4px);white-space:pre-line}
-.vh-bubble.hint{color:rgba(255,255,255,0.6);font-style:italic}
-.vh-bubble .listening-anim{display:flex;gap:3px;align-items:center;height:22px}
-.listening-anim span{width:3px;border-radius:3px;background:#5DCAA5;animation:wave 0.8s ease-in-out infinite}
-.listening-anim span:nth-child(1){height:8px;animation-delay:0s}
-.listening-anim span:nth-child(2){height:16px;animation-delay:0.12s}
-.listening-anim span:nth-child(3){height:12px;animation-delay:0.24s}
-.listening-anim span:nth-child(4){height:18px;animation-delay:0.08s}
-.listening-anim span:nth-child(5){height:10px;animation-delay:0.2s}
-@keyframes wave{0%,100%{transform:scaleY(0.5);opacity:0.7}50%{transform:scaleY(1);opacity:1}}
-.chips-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;position:relative;z-index:1}
-.chip{padding:5px 11px;font-size:11.5px;font-family:'DM Sans',sans-serif;background:rgba(255,255,255,0.12);border:0.5px solid rgba(255,255,255,0.3);border-radius:20px;color:#fff;cursor:pointer;transition:all 0.12s}
-.chip:hover{background:rgba(255,255,255,0.25)}
-.transcript{max-height:0;overflow:hidden;transition:max-height 0.35s ease;position:relative;z-index:1;margin-top:6px}
-.transcript.open{max-height:160px}
-.transcript-inner{background:rgba(0,0,0,0.2);border-radius:8px;padding:8px 10px;font-size:11.5px;color:rgba(255,255,255,0.65);line-height:1.6;max-height:150px;overflow-y:auto}
-.t-line{display:flex;gap:6px;margin-bottom:2px}
-.t-line.user{color:rgba(255,255,255,0.85)}
-.t-line.bot{color:rgba(157,225,203,0.9)}
-.t-role{font-weight:500;flex-shrink:0}
+.ai-banner h2{font-size:16px;font-weight:500;color:#fff;margin-bottom:4px;line-height:1.35}
+.ai-banner p{font-size:12.5px;color:rgba(255,255,255,0.72);line-height:1.55;margin-bottom:14px}
+.ai-banner p em{color:rgba(255,255,255,0.5);font-style:normal}
 
-/* PERM TOAST */
-.perm-toast{display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#fff;border:0.5px solid var(--bd2);border-radius:14px;padding:18px 20px;box-shadow:0 8px 28px rgba(0,0,0,0.14);z-index:300;max-width:320px;width:90%;text-align:center}
-.perm-toast.show{display:block;animation:slidein 0.2s ease}
-@keyframes slidein{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-.perm-icon{font-size:32px;margin-bottom:8px;display:block}
-.perm-title{font-size:15px;font-weight:500;color:var(--t1);margin-bottom:5px}
-.perm-sub{font-size:12.5px;color:var(--t2);margin-bottom:14px;line-height:1.55}
-.perm-btns{display:flex;gap:8px;justify-content:center}
-.perm-allow{padding:9px 20px;background:var(--g2);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer}
-.perm-deny{padding:9px 16px;background:#f5f4f2;color:var(--t2);border:0.5px solid var(--bd);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer}
+/* Chat box inside banner */
+.chat-box{background:rgba(0,0,0,0.2);border-radius:10px;overflow:hidden}
+.chat-messages{padding:10px;max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:88%;padding:8px 11px;border-radius:10px;font-size:12.5px;line-height:1.5;word-break:break-word}
+.msg.bot{background:rgba(255,255,255,0.13);color:#fff;align-self:flex-start;border-bottom-left-radius:3px}
+.msg.user{background:rgba(255,255,255,0.22);color:#fff;align-self:flex-end;border-bottom-right-radius:3px}
+.msg.bot.thinking{color:rgba(255,255,255,0.5);font-style:italic}
+.chat-input-row{display:flex;gap:0;border-top:0.5px solid rgba(255,255,255,0.1)}
+.chat-input{flex:1;background:transparent;border:none;padding:10px 12px;font-size:13px;font-family:'DM Sans',sans-serif;color:#fff;outline:none}
+.chat-input::placeholder{color:rgba(255,255,255,0.35)}
+.chat-send{width:44px;background:rgba(255,255,255,0.12);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s;flex-shrink:0}
+.chat-send:hover{background:rgba(255,255,255,0.22)}
+.chat-send svg{width:18px;height:18px;fill:rgba(255,255,255,0.8)}
+.chat-mic{width:44px;background:rgba(255,255,255,0.08);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s;flex-shrink:0}
+.chat-mic:hover{background:rgba(255,255,255,0.18)}
+.chat-mic.on{background:rgba(220,38,38,0.6);animation:mpulse 1.2s ease-out infinite}
+@keyframes mpulse{0%{box-shadow:0 0 0 0 rgba(220,38,38,0.4)}70%{box-shadow:0 0 0 8px rgba(220,38,38,0)}100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}}
+.chat-mic svg{width:17px;height:17px;fill:rgba(255,255,255,0.8)}
 
-/* DIVIDER */
+/* Token result card inside banner */
+.token-result{display:none;margin-top:12px;background:rgba(255,255,255,0.1);border:0.5px solid rgba(255,255,255,0.25);border-radius:10px;padding:12px 14px}
+.token-result.show{display:block;animation:fadein 0.3s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.tr-label{font-size:10px;font-weight:500;color:rgba(255,255,255,0.55);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:2px}
+.tr-token{font-family:'DM Serif Display',serif;font-size:34px;color:#fff;margin-bottom:6px;line-height:1}
+.tr-detail{font-size:12px;color:rgba(255,255,255,0.8);line-height:1.7;border-top:0.5px solid rgba(255,255,255,0.12);padding-top:8px}
+.tr-note{font-size:11px;color:rgba(255,255,255,0.45);margin-top:5px;font-style:italic}
+
+/* Divider */
 .divider-or{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--t3);margin:0 0 1.1rem}
 .divider-or::before,.divider-or::after{content:'';flex:1;height:0.5px;background:var(--bd)}
 
-/* FORM */
+/* Form */
 .form-card{background:var(--card);border:0.5px solid var(--bd);border-radius:var(--rl);padding:1.4rem;box-shadow:0 2px 10px rgba(0,0,0,0.04)}
 .form-heading{font-size:15px;font-weight:500;color:var(--t1);margin-bottom:3px}
 .form-sub{font-size:12.5px;color:var(--t2);margin-bottom:1.3rem}
@@ -104,14 +82,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .form-label{font-size:11px;font-weight:500;color:var(--t2);text-transform:uppercase;letter-spacing:0.6px}
 .form-input,.form-select{width:100%;height:40px;padding:0 12px;font-size:13.5px;font-family:'DM Sans',sans-serif;background:#fafaf9;border:0.5px solid var(--bd);border-radius:var(--rr);color:var(--t1);outline:none;transition:border-color 0.15s,box-shadow 0.15s}
 .form-input:focus,.form-select:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(29,158,117,0.1)}
-.form-input.vf,.form-select.vf{border-color:var(--g4);background:var(--g6)}
 .form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-color:#fafaf9;padding-right:32px}
 .slot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:4px}
 .slot-btn{padding:7px 2px;font-size:11.5px;font-family:'DM Sans',sans-serif;background:#fafaf9;border:0.5px solid var(--bd);border-radius:var(--rr);color:var(--t2);cursor:pointer;text-align:center;transition:all 0.12s}
 .slot-btn:hover:not(.taken){border-color:var(--g3);color:var(--g2)}
 .slot-btn.selected{background:var(--g6);border-color:var(--g3);color:var(--g2);font-weight:500}
 .slot-btn.taken{background:#f5f4f2;color:var(--t3);cursor:not-allowed;text-decoration:line-through}
-.submit-btn{width:100%;height:44px;margin-top:1.1rem;background:var(--g2);border:none;border-radius:var(--rr);color:#fff;font-size:14px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;transition:background 0.15s,transform 0.1s;letter-spacing:0.2px}
+.submit-btn{width:100%;height:44px;margin-top:1.1rem;background:var(--g2);border:none;border-radius:var(--rr);color:#fff;font-size:14px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;transition:background 0.15s,transform 0.1s}
 .submit-btn:hover{background:var(--g1)}
 .submit-btn:active{transform:scale(0.98)}
 .submit-btn:disabled{background:#d4d2c8;color:var(--t3);cursor:not-allowed;transform:none}
@@ -124,93 +101,51 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .token-label{font-size:11px;color:var(--g3);font-weight:500;text-transform:uppercase;letter-spacing:0.6px}
 .token-value{font-family:'DM Serif Display',serif;font-size:34px;color:var(--g1);margin:2px 0 0}
 .token-meta{font-size:12px;color:var(--g3);margin-top:2px}
-
-/* Voice token card — lives inside voice hero */
-.v-token-card{display:none;margin-top:12px;background:rgba(255,255,255,0.13);border:1px solid rgba(255,255,255,0.3);border-radius:12px;padding:14px 16px;position:relative;z-index:1}
-.v-token-card.show{display:block;animation:msg-in 0.25s ease}
-@keyframes msg-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.v-token-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.v-token-label{font-size:10px;font-weight:500;color:rgba(255,255,255,0.6);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:3px}
-.v-token-num{font-family:'DM Serif Display',serif;font-size:36px;color:#fff;letter-spacing:1px;line-height:1}
-.v-token-check{width:36px;height:36px;border-radius:50%;background:var(--g4);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--g1);font-weight:700;flex-shrink:0}
-.v-token-detail{font-size:12.5px;color:rgba(255,255,255,0.85);line-height:1.7;border-top:0.5px solid rgba(255,255,255,0.15);padding-top:8px}
-.v-token-note{font-size:11.5px;color:rgba(255,255,255,0.55);margin-top:5px;font-style:italic}
 </style>
 </head>
 <body>
-
-<div class="perm-toast" id="perm-toast">
-  <span class="perm-icon">🎤</span>
-  <div class="perm-title">Microphone Access Needed</div>
-  <div class="perm-sub">Voice se appointment book karne ke liye mic permission chahiye.<br/><em>We need microphone access to take your appointment by voice.</em></div>
-  <div class="perm-btns">
-    <button class="perm-allow" onclick="requestMicAndStart()">Allow Microphone</button>
-    <button class="perm-deny" onclick="closePerm()">Not Now</button>
-  </div>
-</div>
-
 <div class="page">
+
+  <!-- Logo -->
   <div class="logo">
     <div class="logo-cross"></div>
     <span class="logo-name">Velo<span>Clinic</span></span>
   </div>
 
-  <!-- VOICE HERO SECTION -->
-  <div class="voice-hero">
-    <div class="vh-badge"><span class="vh-badge-dot"></span>VOICE ASSISTANT AVAILABLE</div>
-    <div class="vh-title">Appointment baat karke book karein &#127897;&#65039;</div>
-    <div class="vh-sub">Sirf mic dabao — hum pooch lenge, aap bolo. <b>Hindi aur English dono chalega.</b><br/><em style="opacity:0.6">Press mic — we ask, you answer. Hindi or English, both work.</em></div>
+  <!-- AI Agent Chat Banner -->
+  <div class="ai-banner">
+    <div class="ai-banner-badge"><span class="ai-dot"></span>AI ASSISTANT — POWERED BY GEMINI</div>
+    <h2>Baat karke appointment book karein</h2>
+    <p>Hindi ya English mein baat karein — AI agent aapki appointment book kar dega.<br/>
+    <em>Chat or speak — AI handles everything in Hindi or English.</em></p>
 
-    <div class="lang-toggle">
-      <button class="lang-btn active" id="lang-hi" onclick="setLang('hi')">&#2361;&#2367;&#2306;&#2342;&#2368; / Hinglish</button>
-      <button class="lang-btn" id="lang-en" onclick="setLang('en')">English</button>
-    </div>
-
-    <div class="progress-bar" id="progress-bar">
-      <div class="prog-step active" id="ps-0"><div class="prog-dot active"></div><div class="prog-label">Name</div></div>
-      <div class="prog-line"></div>
-      <div class="prog-step" id="ps-1"><div class="prog-dot"></div><div class="prog-label">Phone</div></div>
-      <div class="prog-line"></div>
-      <div class="prog-step" id="ps-2"><div class="prog-dot"></div><div class="prog-label">Problem</div></div>
-      <div class="prog-line"></div>
-      <div class="prog-step" id="ps-3"><div class="prog-dot"></div><div class="prog-label">Date</div></div>
-      <div class="prog-line"></div>
-      <div class="prog-step" id="ps-4"><div class="prog-dot"></div><div class="prog-label">Time</div></div>
-      <div class="prog-line"></div>
-      <div class="prog-step" id="ps-5"><div class="prog-dot"></div><div class="prog-label">Done</div></div>
-    </div>
-
-    <div class="vh-row">
-      <div class="mic-wrap">
-        <button class="mic-btn" id="mic-btn" onclick="onMicClick()">
-          <svg class="mic-icon" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+    <div class="chat-box">
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg bot">Namaste! Main aapki appointment book karne mein madad karoonga. Aap Hindi ya English mein baat kar sakte hain. Kaise madad karoon?</div>
+      </div>
+      <div class="chat-input-row">
+        <button class="chat-mic" id="chat-mic" onclick="toggleMic()" title="Voice input">
+          <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
         </button>
-        <div class="mic-label" id="mic-label">Tap to speak</div>
-      </div>
-      <div class="vh-right">
-        <div class="vh-bubble hint" id="vh-bubble">Mic dabao — main poochna shuru karoonga.<br/><em style="opacity:0.7;font-size:11px">Press mic to start booking by voice.</em></div>
+        <input class="chat-input" id="chat-input" placeholder="Yahan likhein ya mic dabaein..." onkeydown="if(event.key==='Enter')sendChat()"/>
+        <button class="chat-send" onclick="sendChat()">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
       </div>
     </div>
 
-    <div class="chips-row" id="chips-row"></div>
-    <div id="transcript" class="transcript"><div class="transcript-inner" id="transcript-inner"></div></div>
-
-    <!-- Voice-only token card — shown after voice booking succeeds -->
-    <div class="v-token-card" id="v-token-card">
-      <div class="v-token-row">
-        <div>
-          <div class="v-token-label">BOOKING TOKEN</div>
-          <div class="v-token-num" id="v-token-num">—</div>
-        </div>
-        <div class="v-token-check">&#10003;</div>
-      </div>
-      <div class="v-token-detail" id="v-token-detail"></div>
-      <div class="v-token-note" id="v-token-note"></div>
+    <!-- Token result shown here after AI booking -->
+    <div class="token-result" id="token-result">
+      <div class="tr-label">Aapka Booking Token</div>
+      <div class="tr-token" id="tr-token">—</div>
+      <div class="tr-detail" id="tr-detail"></div>
+      <div class="tr-note" id="tr-note"></div>
     </div>
   </div>
 
   <div class="divider-or">ya khud fill karein &nbsp;/&nbsp; or fill manually</div>
 
+  <!-- Manual booking form -->
   <div class="form-card">
     <p class="form-heading">Appointment Form</p>
     <p class="form-sub">Manually fill in your details below.</p>
@@ -248,635 +183,200 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
     <div class="status-msg" id="status-msg"></div>
     <div class="token-box" id="token-box">
       <div class="token-label">Aapka Booking Token</div>
-      <div class="token-value" id="token-val">-</div>
+      <div class="token-value" id="token-val">—</div>
       <div class="token-meta" id="token-meta"></div>
     </div>
   </div>
 </div>
 
 <script>
-/* ═══════════════════════════════════════════════════════
-   VeloClinic Voice Assistant
-   Fixes: continuous mic (stays on until tap), full Hindi date words
-   (pachis march, teen april etc), auto-submit without button,
-   token shown in voice bubble, rebook intent detection, IST dates
-   ═══════════════════════════════════════════════════════ */
-const WEBHOOK='https://ashash999.app.n8n.cloud/webhook/book-appointment';
-const SLOTS=['9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM','12:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM','5:00 PM','5:30 PM'];
-const TAKEN=[];
+/* ── Config ── */
+/* Replace this with your n8n AI Agent webhook URL (Workflow 5 in the guide) */
+const AI_WEBHOOK = 'https://ashash999.app.n8n.cloud/webhook/ai-agent';
+const BOOK_WEBHOOK = 'https://ashash999.app.n8n.cloud/webhook/book-appointment';
 
-const grid=document.getElementById('slot-grid');
-SLOTS.forEach(s=>{
-  const b=document.createElement('button');
-  b.className='slot-btn'+(TAKEN.includes(s)?' taken':'');
-  b.textContent=s;b.dataset.slot=s;
-  if(!TAKEN.includes(s))b.onclick=()=>{
-    document.querySelectorAll('.slot-btn').forEach(x=>x.classList.remove('selected'));
-    b.classList.add('selected');document.getElementById('f-slot').value=s;
+const SLOTS = ['9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM',
+               '12:00 PM','12:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM',
+               '4:00 PM','4:30 PM','5:00 PM','5:30 PM'];
+
+/* Build slot grid (manual form) */
+const grid = document.getElementById('slot-grid');
+SLOTS.forEach(s => {
+  const b = document.createElement('button');
+  b.className = 'slot-btn'; b.textContent = s; b.dataset.slot = s;
+  b.onclick = () => {
+    document.querySelectorAll('.slot-btn').forEach(x => x.classList.remove('selected'));
+    b.classList.add('selected');
+    document.getElementById('f-slot').value = s;
   };
   grid.appendChild(b);
 });
+document.getElementById('f-date').min = (() => {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+})();
 
-/* India-timezone-safe ISO date — never uses UTC */
-function localISO(d){
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+/* ── Conversation history sent to AI Agent ── */
+let history = [];
+
+/* ── Chat UI ── */
+function addMsg(text, who) {
+  const el = document.getElementById('chat-messages');
+  const d = document.createElement('div');
+  d.className = 'msg ' + who;
+  d.textContent = text;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+  return d;
 }
-document.getElementById('f-date').min=localISO(new Date());
-
-/* State */
-let lang='hi',step=0,col={};
-let keepListening=false,micAllowed=false,started=false,pausedForTTS=false;
-
-/* Strings */
-const S={
-  hi:{
-    start:'Namaste! Main aapki appointment book karane mein madad karoonga. Pehle apna poora naam batayein.',
-    askPhone:'Shukriya! Ab apna 10 digit mobile number bolein.',
-    askComplaint:'Kya takleef hai? Bukhar, sar dard, khansi, pet dard — kuch bhi bolein.',
-    askDate:'Kis date ko aana chahte hain? Jaise kal, parson, somwar, ya "paanch april" ya "25 march".',
-    askSlot:'Theek hai! Kaunsa time chahiye? Jaise nau baje, do baje, sham char baje.',
-    confirm:function(d){return 'Summary suniye:\nNaam: '+d.name+'\nPhone: '+d.phone+'\nTakleef: '+d.complaint+'\nDate: '+d.date+'\nTime: '+d.slot+'\n\nKya main book kar doon?';},
-    booking:'Bilkul! Booking ho rahi hai...',
-    success:function(t,dt,sl){return 'Mubarak ho! Appointment book ho gayi.\n\nToken: '+t+'\nDate: '+dt+'\nTime: '+sl+'\n\nYeh token clinic mein dikhayein.';},
-    ePhone:'10 digit ka valid number chahiye. Phir se bolein.',
-    eName:'Naam samajh nahi aaya. Clearly bolein.',
-    eComplaint:'Takleef samajh nahi aayi. Bukhar, sar dard, ya kuch aur bolein.',
-    eDate:'"Kal", "Somwar", ya "pachis march" jaise bolein.',
-    eSlot:'"Nau baje", "do baje", ya "sham char baje" jaise bolein.',
-    eTaken:'Yeh time pehle se booked hai. Koi aur time chunein.',
-    alreadyBooked:'Aapka iss number se appointment pehle se book hai. Kya naya slot book karna chahte hain?',
-    restart:'Theek hai, dobara shuru karte hain. Naam kya hai?',
-    intentAck:'Bilkul! Appointment book kar dunga. Pehle apna poora naam batayein.',
-    chips_c:['Bukhar','Sar Dard','Khansi','Pet Dard','Kamar Dard','Check-up','BP Follow-up','Kuch aur'],
-    chips_d:['Kal','Parson','Somwar','Mangalwar','Aaj'],
-    chips_t:['9:00 AM','10:00 AM','11:00 AM','2:00 PM','3:00 PM','4:00 PM'],
-    chips_ok:['Haan, book karo','Nahi, badlo']
-  },
-  en:{
-    start:"Hello! I'll help you book an appointment. Please say your full name.",
-    askPhone:"Thank you! Now say your 10-digit mobile number.",
-    askComplaint:"What is your problem? Fever, headache, cough, back pain — say anything.",
-    askDate:"Which date? Say tomorrow, Monday, or a date like March 25.",
-    askSlot:"Which time? Say 9 AM, 2 PM, or a similar time.",
-    confirm:function(d){return 'Summary:\nName: '+d.name+'\nPhone: '+d.phone+'\nProblem: '+d.complaint+'\nDate: '+d.date+'\nTime: '+d.slot+'\n\nShall I confirm?';},
-    booking:"Booking now, please wait...",
-    success:function(t,dt,sl){return 'Appointment confirmed!\n\nToken: '+t+'\nDate: '+dt+'\nTime: '+sl+'\n\nShow this token at the clinic.';},
-    ePhone:"Please say a valid 10-digit phone number.",
-    eName:"I didn't catch your name. Say it clearly.",
-    eComplaint:"Say fever, headache, cough, or another issue.",
-    eDate:"Try tomorrow, Monday, or March 25.",
-    eSlot:"Say 9 AM, 2 PM, or a similar time.",
-    eTaken:"That slot is taken. Please choose another.",
-    alreadyBooked:"You already have an appointment with this number. Would you like to book a new slot?",
-    restart:"Let's start over. What is your name?",
-    intentAck:"Sure! Let me book an appointment. Please say your full name.",
-    chips_c:['Fever','Headache','Cold & Cough','Stomach Pain','Back Pain','Check-up','BP Follow-up','Other'],
-    chips_d:['Tomorrow','Day after','Monday','Tuesday','Today'],
-    chips_t:['9:00 AM','10:00 AM','11:00 AM','2:00 PM','3:00 PM','4:00 PM'],
-    chips_ok:['Yes, confirm','No, change']
-  }
-};
-function g(){return S[lang];}
-
-/* Complaint map */
-const CM={
-  'fever':'Fever','bukhar':'Fever','bukhaar':'Fever','tap':'Fever','temperature':'Fever',
-  'headache':'Headache','sar dard':'Headache','sir dard':'Headache','sirdard':'Headache',
-  'stomach pain':'Stomach Pain','pet dard':'Stomach Pain','pet':'Stomach Pain','stomach':'Stomach Pain',
-  'cough':'Cold & Cough','cold':'Cold & Cough','khansi':'Cold & Cough','khasi':'Cold & Cough',
-  'zukam':'Cold & Cough','flu':'Cold & Cough','sardi':'Cold & Cough',
-  'back pain':'Back Pain','kamar':'Back Pain','kamar dard':'Back Pain',
-  'chest':'Chest Pain','seena':'Chest Pain','chest pain':'Chest Pain',
-  'skin':'Skin Issue','rash':'Skin Issue','khujli':'Skin Issue','itching':'Skin Issue',
-  'eye':'Eye Problem','aankh':'Eye Problem','ear':'Ear Problem','kaan':'Ear Problem',
-  'diabetes':'Diabetes Follow-up','sugar':'Diabetes Follow-up',
-  'bp':'BP Follow-up','blood pressure':'BP Follow-up','pressure':'BP Follow-up',
-  'general':'General Check-up','checkup':'General Check-up','check up':'General Check-up',
-  'jach':'General Check-up','routine':'General Check-up','other':'Other','kuch aur':'Other'
-};
-
-/* Booking intent phrases */
-const INTENTS=[
-  'appointment book','book appointment','appointment chahiye','appointment lena',
-  'doctor ke yahan','doctor ka number','number lagana','number lagao','number laga do',
-  'doctor se milna','appointment karni','appointment karna','booking karna',
-  'mujhe doctor','doctor dikhana','slot book','slot chahiye','milna hai doctor',
-  'i want appointment','i need appointment','book karna hai','appointment leni',
-  'number laganaa','doctor ke paas','doctor ke number'
-];
-
-/* ═══════════════════════════
-   DATE PARSING
-   ═══════════════════════════ */
-
-/* Hindi day-of-month words sorted longest-first to avoid partial matches */
-var HDAY=[
-  ['ikattees',31],['ikathtees',31],['iktees',31],
-  ['untees',29],['unttees',29],['unattees',29],
-  ['atthaees',28],['atthais',28],
-  ['sattaees',27],['sataees',27],['sattais',27],
-  ['chabbees',26],['chabees',26],['chhabbees',26],
-  ['pachis',25],['pachchis',25],['pacheesi',25],['pachhis',25],['paanchees',25],
-  ['chaubees',24],['chauvees',24],
-  ['teis',23],['teeis',23],
-  ['baees',22],['bayees',22],['baaees',22],
-  ['ikkees',21],['ikees',21],['ikis',21],
-  ['bees',20],['bis',20],
-  ['unnees',19],['unnis',19],
-  ['atharah',18],['athaara',18],['athara',18],['atthara',18],
-  ['satrah',17],['satra',17],
-  ['solah',16],['sola',16],
-  ['pandrah',15],['panndrah',15],
-  ['chaudah',14],['chaudhah',14],
-  ['terah',13],['tera',13],
-  ['tees',30],['tis',30],
-  ['barah',12],['barha',12],
-  ['gyarah',11],['gyaraha',11],
-  ['das',10],
-  ['nau',9],['nava',9],['nao',9],
-  ['aath',8],['ath',8],
-  ['saat',7],['saath',7],
-  ['chhe',6],['chhah',6],['chha',6],
-  ['paanch',5],['panch',5],['paach',5],
-  ['char',4],['chaar',4],
-  ['teen',3],['tin',3],
-  ['do',2],
-  ['ek',1],['ik',1]
-];
-
-/* Month name to 0-based index */
-var MMAP=[
-  ['janwari',0],['jaanwari',0],['january',0],['jan',0],
-  ['farvari',1],['farwari',1],['pharvari',1],['february',1],['feb',1],
-  ['maarach',2],['maar',2],['march',2],['mar',2],
-  ['aprail',3],['april',3],['apr',3],
-  ['maai',4],['mai',4],['may',4],
-  ['june',5],['jun',5],
-  ['julai',6],['july',6],['jul',6],
-  ['agast',7],['agust',7],['august',7],['aug',7],
-  ['sitambar',8],['sitambhar',8],['september',8],['sept',8],['sep',8],
-  ['aktoobar',9],['aktubar',9],['october',9],['oct',9],
-  ['navambar',10],['navamber',10],['november',10],['nov',10],
-  ['disambar',11],['disamber',11],['december',11],['dec',11]
-];
-
-/* Time number words (used only for slot matching) */
-var TNUM={
-  'ek':1,'do':2,'teen':3,'char':4,'paanch':5,'chhe':6,'saat':7,'aath':8,'nau':9,'das':10,'gyarah':11,'barah':12,
-  'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,'nine':9,'ten':10,'eleven':11,'twelve':12
-};
-
-/* Devanagari digits to ASCII */
-function dev2asc(t){return t.replace(/[०-९]/g,function(d){return d.charCodeAt(0)-0x0966;});}
-
-/* Normalize date: replace Hindi day-words with digits */
-function normDate(raw){
-  var t=dev2asc(raw.toLowerCase());
-  for(var i=0;i<HDAY.length;i++){
-    var w=HDAY[i][0],n=HDAY[i][1];
-    t=t.replace(new RegExp('(?<![a-z])'+w+'(?![a-z])','g'),' '+n+' ');
-  }
-  return t;
-}
-
-/* Normalize time: replace Hindi time-words with digits */
-function normTime(raw){
-  var t=dev2asc(raw.toLowerCase());
-  for(var w in TNUM){
-    t=t.replace(new RegExp('\\b'+w+'\\b','gi'),' '+TNUM[w]+' ');
-  }
-  return t;
-}
-
-/* Parse spoken date string → YYYY-MM-DD (IST safe) */
-function parseD(raw){
-  var txt=dev2asc(raw.toLowerCase().trim());
-  var today=new Date();today.setHours(12,0,0,0);
-
-  /* Relative */
-  if(/\baaj\b/.test(txt)||txt.indexOf('today')>=0)return localISO(today);
-  if(/\bkal\b/.test(txt)||txt.indexOf('tomorrow')>=0||txt.indexOf('agle din')>=0){
-    var d=new Date(today);d.setDate(d.getDate()+1);return localISO(d);}
-  if(txt.indexOf('parson')>=0||txt.indexOf('day after')>=0){
-    var d=new Date(today);d.setDate(d.getDate()+2);return localISO(d);}
-
-  /* Day of week */
-  var DOW={sunday:0,somwar:1,monday:1,mangalwar:2,tuesday:2,budhwar:3,wednesday:3,
-           guruwar:4,brihaspatiwar:4,thursday:4,shukrawar:5,friday:5,shaniwar:6,saturday:6};
-  for(var k in DOW){
-    if(txt.indexOf(k)>=0){
-      var d=new Date(today);var df=(DOW[k]-d.getDay()+7)%7||7;d.setDate(d.getDate()+df);return localISO(d);
-    }
-  }
-
-  /* Normalize Hindi day-words to digits */
-  var norm=normDate(txt);
-
-  /* Month name + day digit */
-  for(var mi=0;mi<MMAP.length;mi++){
-    var mw=MMAP[mi][0],midx=MMAP[mi][1];
-    if(norm.indexOf(mw)>=0){
-      var nm=norm.match(/\b(\d{1,2})\b/);
-      if(nm){
-        var day=parseInt(nm[1]);
-        if(day>=1&&day<=31){
-          var d=new Date(today.getFullYear(),midx,day,12,0,0);
-          if(d<today)d.setFullYear(d.getFullYear()+1);
-          return localISO(d);
-        }
-      }
-    }
-  }
-
-  /* DD/MM or DD-MM */
-  var m2=norm.match(/\b(\d{1,2})[\/\-](\d{1,2})\b/);
-  if(m2){var d=new Date(today.getFullYear(),parseInt(m2[2])-1,parseInt(m2[1]),12,0,0);if(d<today)d.setFullYear(d.getFullYear()+1);return localISO(d);}
-
-  /* Single number — nearest future date */
-  var sn=norm.trim().match(/^(\d{1,2})$/);
-  if(sn){
-    var day=parseInt(sn[1]);
-    if(day>=1&&day<=31){
-      var d=new Date(today.getFullYear(),today.getMonth(),day,12,0,0);
-      if(d<today)d.setMonth(d.getMonth()+1);
-      return localISO(d);
-    }
-  }
-  return null;
-}
-
-/* Match spoken time to a slot */
-function matchS(raw){
-  var txt=raw.toLowerCase();
-  for(var i=0;i<SLOTS.length;i++){if(txt.indexOf(SLOTS[i].toLowerCase())>=0)return SLOTS[i];}
-  var norm=normTime(txt);
-  var m=norm.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|baje|baj)\b/i);
-  if(m){
-    var h=parseInt(m[1]),mn=parseInt(m[2]||'0');
-    var suf=(m[3]||'').toLowerCase();
-    if(suf==='pm'&&h!==12)h+=12;
-    if(suf==='am'&&h===12)h=0;
-    /* baje rule: 1-8 = afternoon PM, 9-12 = morning AM */
-    if(suf.indexOf('baj')===0&&h>=1&&h<=8)h+=12;
-    var target=h*60+mn,best=null,bd=21;
-    for(var j=0;j<SLOTS.length;j++){
-      var p=SLOTS[j].match(/(\d+):(\d+)\s*(AM|PM)/i);
-      var sh=parseInt(p[1]),sm=parseInt(p[2]);
-      if(p[3].toLowerCase()==='pm'&&sh!==12)sh+=12;
-      if(p[3].toLowerCase()==='am'&&sh===12)sh=0;
-      var diff=Math.abs(sh*60+sm-target);
-      if(diff<bd){bd=diff;best=SLOTS[j];}
-    }
-    if(best)return best;
-  }
-  if(txt.indexOf('subah')>=0||txt.indexOf('morning')>=0||txt.indexOf('savere')>=0)return'9:00 AM';
-  if(txt.indexOf('dopahar')>=0||txt.indexOf('noon')>=0||txt.indexOf('duphar')>=0)return'12:00 PM';
-  if(txt.indexOf('sham')>=0||txt.indexOf('evening')>=0||txt.indexOf('shyam')>=0)return'4:00 PM';
-  return null;
-}
-
-/* ═══════════════════════════
-   SPEECH RECOGNITION
-   keepListening=true  mic stays on
-   pausedForTTS=true   pauses during speech synthesis
-   ═══════════════════════════ */
-var SpeechRec=window.SpeechRecognition||window.webkitSpeechRecognition;
-var rec=null;
-if(SpeechRec){
-  rec=new SpeechRec();
-  rec.continuous=false;rec.interimResults=false;rec.lang='hi-IN';
-
-  rec.onresult=function(e){
-    var t=e.results[0][0].transcript.trim();
-    addLog(t,'user');
-    setBubble(lang==='hi'?'Samajh raha hoon...':'Processing...');
-    setTimeout(function(){process(t);},300);
-  };
-
-  /* Auto-restart after each utterance while keepListening */
-  rec.onend=function(){
-    if(keepListening&&micAllowed&&!pausedForTTS){
-      setTimeout(function(){try{rec.start();}catch(ex){}},150);
-    }
-  };
-
-  rec.onerror=function(e){
-    if(e.error==='not-allowed'){micAllowed=false;keepListening=false;setMicUI();showPerm();}
-    else if(e.error==='no-speech'){
-      if(keepListening&&!pausedForTTS)setTimeout(function(){try{rec.start();}catch(ex){}},200);
-    } else {
-      if(keepListening&&!pausedForTTS)setTimeout(function(){try{rec.start();}catch(ex){}},600);
-    }
-  };
-}
-
-/* TTS — pauses mic, resumes after speaking */
-function speak(text){
-  window.speechSynthesis.cancel();
-  pausedForTTS=true;
-  try{if(rec)rec.stop();}catch(e){}
-  var u=new SpeechSynthesisUtterance(text.replace(/\n/g,'. '));
-  u.lang=lang==='hi'?'hi-IN':'en-IN';u.rate=0.92;u.pitch=1.0;
-  var vs=speechSynthesis.getVoices();
-  var pref=vs.find(function(v){return v.lang===u.lang;})||vs.find(function(v){return v.lang.indexOf(lang==='hi'?'hi':'en')===0;});
-  if(pref)u.voice=pref;
-  var resume=function(){
-    pausedForTTS=false;
-    if(keepListening&&micAllowed)setTimeout(function(){try{rec.start();}catch(e){}},350);
-  };
-  var fl=setTimeout(resume,Math.max(text.length*80,3500));
-  u.onend=function(){clearTimeout(fl);resume();};
-  speechSynthesis.speak(u);
-}
-
-/* Permission */
-function showPerm(){document.getElementById('perm-toast').classList.add('show');}
-function closePerm(){document.getElementById('perm-toast').classList.remove('show');}
-async function requestMicAndStart(){
-  closePerm();
-  try{
-    await navigator.mediaDevices.getUserMedia({audio:true});
-    micAllowed=true;startConvo();
-  }catch(e){
-    setBubble(lang==='hi'?'Mic allow nahi hua. Browser settings mein allow karein.':'Mic denied. Allow in browser settings.');
+function setThinking(on) {
+  const existing = document.getElementById('thinking-msg');
+  if (on && !existing) {
+    const d = addMsg('Soch raha hoon...', 'bot thinking');
+    d.id = 'thinking-msg';
+  } else if (!on && existing) {
+    existing.remove();
   }
 }
 
-/* Mic toggle — stays on until patient taps again */
-function onMicClick(){
-  if(keepListening){
-    keepListening=false;pausedForTTS=false;
-    try{rec.stop();}catch(e){}
-    setMicUI();return;
-  }
-  if(!SpeechRec){setBubble('Chrome browser use karein / Please use Chrome.');return;}
-  if(!started){
-    if(navigator.permissions){
-      navigator.permissions.query({name:'microphone'}).then(function(r){
-        if(r.state==='granted'){micAllowed=true;startConvo();}
-        else showPerm();
-      }).catch(function(){showPerm();});
-    } else showPerm();
-  } else {
-    keepListening=true;setMicUI();
-    try{rec.start();}catch(e){}
-  }
-}
+/* ── Send message to n8n AI Agent webhook ── */
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addMsg(text, 'user');
+  history.push({ role: 'user', content: text });
+  setThinking(true);
 
-function startConvo(){
-  started=true;keepListening=true;
-  step=0;col={};updateProg(0);
-  document.getElementById('transcript').classList.add('open');
-  setMicUI();
-  var m=g().start;
-  addLog(m,'bot');setBubble(m);speak(m);
-}
-
-/* UI helpers */
-function setLang(l){
-  lang=l;
-  document.getElementById('lang-hi').classList.toggle('active',l==='hi');
-  document.getElementById('lang-en').classList.toggle('active',l==='en');
-  if(rec)rec.lang=l==='hi'?'hi-IN':'en-IN';
-}
-function setMicUI(){
-  document.getElementById('mic-btn').classList.toggle('listening',keepListening);
-  document.getElementById('mic-btn').classList.remove('thinking');
-  document.getElementById('mic-label').textContent=keepListening
-    ?(lang==='hi'?'Band karne ke liye tap karein':'Tap to stop')
-    :(lang==='hi'?'Tap karein':'Tap to speak');
-}
-function setBubble(text){
-  var b=document.getElementById('vh-bubble');
-  b.className='vh-bubble';b.style.whiteSpace='pre-line';b.textContent=text;
-}
-function setChips(arr){
-  var c=document.getElementById('chips-row');c.innerHTML='';
-  arr.forEach(function(ch){
-    var btn=document.createElement('button');btn.className='chip';btn.textContent=ch;
-    btn.onclick=function(){addLog(ch,'user');setChips([]);process(ch);};
-    c.appendChild(btn);
-  });
-}
-function addLog(text,who){
-  var el=document.getElementById('transcript-inner');
-  var d=document.createElement('div');d.className='t-line '+who;
-  d.innerHTML='<span class="t-role">'+(who==='bot'?'Bot:':'You:')+'</span><span>'+text.substring(0,120)+'</span>';
-  el.appendChild(d);el.scrollTop=el.scrollHeight;
-}
-function bot(text){setBubble(text);addLog(text,'bot');speak(text);}
-function fill(id,val){var el=document.getElementById(id);el.value=val;el.classList.add('vf');}
-function setsel(id,val){var el=document.getElementById(id);for(var i=0;i<el.options.length;i++){if(el.options[i].text===val){el.selectedIndex=i;break;}}el.classList.add('vf');}
-function selSlot(sl){document.querySelectorAll('.slot-btn').forEach(function(b){b.classList.remove('selected');if(b.dataset.slot===sl)b.classList.add('selected');});document.getElementById('f-slot').value=sl;}
-function cap(s){return s.replace(/\b\w/g,function(c){return c.toUpperCase();});}
-var PNAMES=['name','phone','complaint','date','slot','confirm'];
-function updateProg(n){
-  for(var i=0;i<6;i++){
-    var ps=document.getElementById('ps-'+i),dot=ps.querySelector('.prog-dot');
-    ps.classList.remove('done','active');dot.classList.remove('done','active');
-    if(i<n){ps.classList.add('done');dot.classList.add('done');}
-    else if(i===n){ps.classList.add('active');dot.classList.add('active');}
-  }
-}
-
-/* ═══════════════════════════
-   MAIN CONVERSATION PROCESS
-   ═══════════════════════════ */
-function process(raw){
-  var txt=raw.toLowerCase().trim();
-  setChips([]);
-
-  /* Booking intent detection — works at any step */
-  var isIntent=INTENTS.some(function(p){return txt.indexOf(p)>=0;});
-  if(isIntent&&(step===0||step>=6)){
-    col={};step=0;updateProg(0);bot(g().intentAck);return;
-  }
-
-  /* NAME */
-  if(PNAMES[step]==='name'){
-    if(isIntent){col={};bot(g().intentAck);return;}
-    var name=raw.trim().replace(/^(mera naam|my name is|i am|i'm|this is|naam hai|naam|main|mera)\s*/i,'').trim();
-    if(name.length<2||/^\d+$/.test(name)){bot(g().eName);return;}
-    col.name=cap(name);
-    step=1;updateProg(1);bot(g().askPhone);return;
-  }
-
-  /* PHONE */
-  if(PNAMES[step]==='phone'){
-    var digits=dev2asc(txt).replace(/\D/g,'').slice(-10);
-    if(digits.length!==10){bot(g().ePhone);return;}
-    col.phone=digits;
-    step=2;updateProg(2);setChips(g().chips_c);bot(g().askComplaint);return;
-  }
-
-  /* COMPLAINT */
-  if(PNAMES[step]==='complaint'){
-    var found=null;
-    var cmkeys=Object.keys(CM);
-    for(var i=0;i<cmkeys.length;i++){if(txt.indexOf(cmkeys[i])>=0){found=CM[cmkeys[i]];break;}}
-    if(!found&&txt.length>1)found='Other';
-    if(!found){setChips(g().chips_c);bot(g().eComplaint);return;}
-    col.complaint=found;
-    step=3;updateProg(3);setChips(g().chips_d);bot(g().askDate);return;
-  }
-
-  /* DATE */
-  if(PNAMES[step]==='date'){
-    var dt=parseD(txt);
-    if(!dt){setChips(g().chips_d);bot(g().eDate);return;}
-    col.date=dt;
-    step=4;updateProg(4);setChips(g().chips_t);bot(g().askSlot);return;
-  }
-
-  /* SLOT */
-  if(PNAMES[step]==='slot'){
-    var sl=matchS(txt);
-    if(!sl){setChips(g().chips_t);bot(g().eSlot);return;}
-    if(TAKEN.indexOf(sl)>=0){setChips(g().chips_t);bot(g().eTaken);return;}
-    col.slot=sl;
-    step=5;updateProg(5);setChips(g().chips_ok);
-    bot(g().confirm(col));
-    return;
-  }
-
-  /* CONFIRM — AUTO-SUBMIT, no button click needed */
-  if(PNAMES[step]==='confirm'){
-    var YES=['haan','han','yes','confirm','book','ok','theek','karo','ji','bilkul','sahi',
-             'done','correct','chalega','zaroor','proceed','sure','kar do','aage','haa',
-             'absolutely','right','perfect','accha','hn','okay'];
-    var isYes=YES.some(function(w){return txt.indexOf(w)>=0;});
-    if(isYes){
-      setChips([]);step=6;
-      document.getElementById('mic-btn').classList.add('thinking');
-      document.getElementById('mic-label').textContent='Booking...';
-      addLog(g().booking,'bot');setBubble(g().booking);speak(g().booking);
-      setTimeout(function(){doBook();},900);
-    } else {
-      col={};step=0;updateProg(0);bot(g().restart);
-    }
-    return;
-  }
-}
-
-/* ═══════════════════════════
-   BOOK — POST to n8n webhook
-   Token shown in voice bubble
-   ═══════════════════════════ */
-async function doBook(){
-  try{
-    var res=await fetch(WEBHOOK,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        name:col.name,
-        phone:col.phone,
-        date:col.date,     /* YYYY-MM-DD — no timezone issue */
-        complaint:col.complaint,
-        timeslot:col.slot
+  try {
+    const res = await fetch(AI_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: text,
+        history: history,
+        today: (() => {
+          const d = new Date();
+          return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        })()
       })
     });
-    var data=await res.json();
-    document.getElementById('mic-btn').classList.remove('thinking');
-    setMicUI();
+    const data = await res.json();
+    setThinking(false);
 
-    if(data.success){
-      var token=data.token||'-';
-      var dt=col.date,sl=col.slot,nm=col.name,ph=col.phone,cp=col.complaint;
-      var vt=data.valid_till||'';
+    const reply = data.reply || data.message || 'Kuch galat hua. Dobara try karein.';
+    addMsg(reply, 'bot');
+    history.push({ role: 'assistant', content: reply });
+    speak(reply);
 
-      /* ── Show voice token card ── */
-      document.getElementById('v-token-num').textContent=token;
-      document.getElementById('v-token-detail').innerHTML=
-        '<b>'+nm+'</b> &nbsp;|&nbsp; '+ph+'<br>'+
-        (lang==='hi'?'Takleef':'Problem')+': '+cp+'<br>'+
-        (lang==='hi'?'Tarikh':'Date')+': '+dt+' &nbsp;|&nbsp; '+
-        (lang==='hi'?'Waqt':'Time')+': '+sl+
-        (vt?('<br>'+(lang==='hi'?'Valid till':'Valid till')+': '+vt):'');
-      document.getElementById('v-token-note').textContent=
-        lang==='hi'?'Yeh token clinic mein receptionist ko dikhayein.':'Show this token to the receptionist at the clinic.';
-      document.getElementById('v-token-card').classList.add('show');
-
-      /* ── Speak the token details ── */
-      var spoken=lang==='hi'
-        ?'Mubarak ho '+nm+'! Aapka token hai '+token+'. Tarikh '+dt+', waqt '+sl+'. Yeh token clinic mein dikhayein.'
-        :'Congratulations '+nm+'! Your token is '+token+'. Date '+dt+', time '+sl+'. Show this at the clinic.';
-      bot(spoken);
-      updateProg(6);
-
-      /* ── Book another chip ── */
-      var cr=document.getElementById('chips-row');cr.innerHTML='';
-      var nb=document.createElement('button');nb.className='chip';
-      nb.textContent=lang==='hi'?'Doosra appointment book karein':'Book another appointment';
-      nb.onclick=function(){
-        /* reset ONLY voice state — manual form is completely untouched */
-        document.getElementById('v-token-card').classList.remove('show');
-        cr.innerHTML='';
-        col={};step=0;updateProg(0);
-        bot(g().intentAck);
-      };
-      cr.appendChild(nb);
-      col={};/* clear voice data; step stays 6 until chip clicked */
-
-    } else {
-      var errMsg=data.message||(lang==='hi'?'Kuch galat hua. Dobara try karein.':'Something went wrong. Please try again.');
-      /* Check if already booked */
-      var isAlready=(errMsg.toLowerCase().indexOf('already')>=0||
-                     errMsg.toLowerCase().indexOf('pehle se')>=0||
-                     errMsg.toLowerCase().indexOf('exist')>=0||
-                     errMsg.toLowerCase().indexOf('booked')>=0);
-      bot(isAlready?g().alreadyBooked:errMsg);
-      if(isAlready&&data.token){
-        document.getElementById('v-token-num').textContent=data.token;
-        document.getElementById('v-token-detail').textContent=lang==='hi'?'Pehle se booked hai':'Previously booked';
-        document.getElementById('v-token-note').textContent='';
-        document.getElementById('v-token-card').classList.add('show');
-      }
-      step=4;setChips(g().chips_t);
+    /* If AI agent successfully booked — show token card */
+    if (data.booked && data.token) {
+      showTokenResult(data);
     }
-  }catch(e){
-    document.getElementById('mic-btn').classList.remove('thinking');setMicUI();
-    bot(lang==='hi'?'Server se connect nahi hua. Internet check karein.':'Could not connect. Check your internet.');
-    step=4;
+
+  } catch(e) {
+    setThinking(false);
+    const err = 'Server se connect nahi hua. Internet check karein.';
+    addMsg(err, 'bot');
+    speak(err);
   }
 }
 
-/* Manual form submit */
-function resetForm(){
-  ['f-name','f-phone','f-date'].forEach(function(id){var el=document.getElementById(id);el.value='';el.classList.remove('vf');});
-  document.getElementById('f-complaint').value='';document.getElementById('f-complaint').classList.remove('vf');
-  document.getElementById('f-slot').value='';document.querySelectorAll('.slot-btn').forEach(function(b){b.classList.remove('selected');});
-  var m=document.getElementById('status-msg');m.className='status-msg';m.textContent='';
+/* ── Token result card ── */
+function showTokenResult(data) {
+  document.getElementById('tr-token').textContent = data.token;
+  document.getElementById('tr-detail').innerHTML =
+    '<b>' + (data.name || '') + '</b> &nbsp;|&nbsp; ' + (data.phone || '') + '<br>' +
+    'Takleef: ' + (data.complaint || '') + '<br>' +
+    'Date: ' + (data.date || '') + ' &nbsp;|&nbsp; Time: ' + (data.timeslot || '') +
+    (data.valid_till ? '<br>Valid till: ' + data.valid_till : '');
+  document.getElementById('tr-note').textContent = 'Yeh token clinic mein receptionist ko dikhayein.';
+  document.getElementById('token-result').classList.add('show');
+}
+
+/* ── Voice input using Web Speech API ── */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, micOn = false;
+if (SpeechRec) {
+  rec = new SpeechRec();
+  rec.lang = 'hi-IN'; rec.continuous = false; rec.interimResults = false;
+  rec.onresult = e => {
+    const t = e.results[0][0].transcript;
+    document.getElementById('chat-input').value = t;
+    toggleMic();
+    sendChat();
+  };
+  rec.onend = () => { micOn = false; document.getElementById('chat-mic').classList.remove('on'); };
+  rec.onerror = () => { micOn = false; document.getElementById('chat-mic').classList.remove('on'); };
+}
+function toggleMic() {
+  if (!rec) { addMsg('Voice input ke liye Chrome browser use karein.', 'bot'); return; }
+  if (micOn) { rec.stop(); micOn = false; document.getElementById('chat-mic').classList.remove('on'); }
+  else { rec.start(); micOn = true; document.getElementById('chat-mic').classList.add('on'); }
+}
+
+/* ── TTS (speak bot replies) ── */
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'hi-IN'; u.rate = 0.92;
+  const v = speechSynthesis.getVoices().find(x => x.lang === 'hi-IN');
+  if (v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+speechSynthesis.onvoiceschanged = () => {};
+
+/* ── Manual form submit (unchanged) ── */
+function resetForm() {
+  ['f-name','f-phone','f-date'].forEach(id => { const el = document.getElementById(id); el.value = ''; });
+  document.getElementById('f-complaint').value = '';
+  document.getElementById('f-slot').value = '';
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('status-msg').className = 'status-msg';
+  document.getElementById('status-msg').textContent = '';
   document.getElementById('token-box').classList.remove('show');
-  var btn=document.getElementById('submit-btn');btn.textContent='Appointment Confirm Karein';btn.onclick=submitForm;
+  const btn = document.getElementById('submit-btn');
+  btn.textContent = 'Appointment Confirm Karein'; btn.onclick = submitForm;
 }
-async function submitForm(){
-  var name=document.getElementById('f-name').value.trim();
-  var phone=document.getElementById('f-phone').value.trim();
-  var complaint=document.getElementById('f-complaint').value;
-  var date=document.getElementById('f-date').value; /* input[type=date] always YYYY-MM-DD */
-  var slot=document.getElementById('f-slot').value;
-  var msg=document.getElementById('status-msg'),btn=document.getElementById('submit-btn');
-  if(!name||!phone||!complaint||!date||!slot){msg.className='status-msg error';msg.textContent='Saare fields bharein aur ek time slot chunein.';return;}
-  if(phone.length!==10||isNaN(phone)){msg.className='status-msg error';msg.textContent='10 digit ka valid number dalein.';return;}
-  btn.disabled=true;btn.textContent='Booking...';msg.className='status-msg loading';msg.textContent='Appointment book ho rahi hai...';
-  try{
-    var res=await fetch(WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,phone:phone,date:date,complaint:complaint,timeslot:slot})});
-    var data=await res.json();
-    if(data.success){
-      msg.className='status-msg success';msg.textContent=data.message||'Appointment confirm ho gayi!';
+async function submitForm() {
+  const name = document.getElementById('f-name').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  const complaint = document.getElementById('f-complaint').value;
+  const date = document.getElementById('f-date').value;
+  const slot = document.getElementById('f-slot').value;
+  const msg = document.getElementById('status-msg');
+  const btn = document.getElementById('submit-btn');
+  if (!name||!phone||!complaint||!date||!slot) {
+    msg.className = 'status-msg error'; msg.textContent = 'Saare fields bharein aur ek time slot chunein.'; return;
+  }
+  if (phone.length !== 10 || isNaN(phone)) {
+    msg.className = 'status-msg error'; msg.textContent = '10 digit ka valid number dalein.'; return;
+  }
+  btn.disabled = true; btn.textContent = 'Booking...';
+  msg.className = 'status-msg loading'; msg.textContent = 'Appointment book ho rahi hai...';
+  try {
+    const res = await fetch(BOOK_WEBHOOK, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, date, complaint, timeslot: slot })
+    });
+    const data = await res.json();
+    if (data.success) {
+      msg.className = 'status-msg success'; msg.textContent = data.message || 'Appointment confirm ho gayi!';
       document.getElementById('token-box').classList.add('show');
-      document.getElementById('token-val').textContent=data.token||'-';
-      document.getElementById('token-meta').textContent=date+' at '+slot+(data.valid_till?' | Valid till '+data.valid_till:'');
-      btn.disabled=false;btn.textContent='Ek aur Appointment Book Karein';btn.onclick=resetForm;
+      document.getElementById('token-val').textContent = data.token || '—';
+      document.getElementById('token-meta').textContent = date + ' at ' + slot + (data.valid_till ? ' | Valid till ' + data.valid_till : '');
+      btn.disabled = false; btn.textContent = 'Ek aur Appointment Book Karein'; btn.onclick = resetForm;
     } else {
-      msg.className='status-msg error';msg.textContent=data.message||'Kuch galat hua. Dobara try karein.';
-      btn.disabled=false;btn.textContent='Appointment Confirm Karein';
+      msg.className = 'status-msg error'; msg.textContent = data.message || 'Kuch galat hua. Dobara try karein.';
+      btn.disabled = false; btn.textContent = 'Appointment Confirm Karein';
     }
-  }catch(e){
-    msg.className='status-msg error';msg.textContent='Server se connect nahi hua.';
-    btn.disabled=false;btn.textContent='Appointment Confirm Karein';
+  } catch(e) {
+    msg.className = 'status-msg error'; msg.textContent = 'Server se connect nahi hua.';
+    btn.disabled = false; btn.textContent = 'Appointment Confirm Karein';
   }
 }
-speechSynthesis.onvoiceschanged=function(){};
 </script>
 </body>
 </html>
