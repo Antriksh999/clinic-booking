@@ -344,7 +344,7 @@ body{
     </div>
 
     <div class="chat-msgs" id="chat-msgs">
-      <div class="msg bot">Namaste! Aapka appointment book karne ke liye taiyaar hoon. Apna naam batayein.</div>
+      <div class="msg bot" id="greeting-msg">Namaste! Aapka appointment book karne ke liye taiyaar hoon. Apna naam batayein.</div>
     </div>
 
     <div class="input-row">
@@ -602,10 +602,11 @@ async function sendMsg() {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        message: text,
-        history: chatHistory,
-        today:   today,
-        available_slots: availableSlots   /* ← AI will only suggest these */
+        message:         text,
+        history:         chatHistory,
+        today:           today,
+        available_slots: availableSlots,
+        lang:            micLang === 'hi-IN' ? 'hindi' : 'english'  /* ← STRICT language instruction */
       })
     });
 
@@ -735,11 +736,35 @@ function toggleMic() {
   updateMicUI();
 }
 
+/* Greeting text per language */
+const GREETINGS = {
+  'hi-IN': 'Namaste! Aapka appointment book karne ke liye taiyaar hoon. Apna naam batayein.',
+  'en-US': 'Hello! I\'m here to help you book an appointment at VeloClinic. May I have your name?'
+};
+
 function setLang(lang, btnId) {
   micLang = lang;
-  document.getElementById('lang-hi').className = 'lang-btn' + (btnId==='lang-hi' ? ' active' : '');
-  document.getElementById('lang-en').className = 'lang-btn' + (btnId==='lang-en' ? ' active' : '');
-  /* Restart with new language */
+
+  /* ── Update lang button UI ── */
+  document.getElementById('lang-hi').className = 'lang-btn' + (btnId === 'lang-hi' ? ' active' : '');
+  document.getElementById('lang-en').className = 'lang-btn' + (btnId === 'lang-en' ? ' active' : '');
+
+  /* ── Clear entire conversation and start fresh in new language ──
+     This is the key fix: switching language resets context so AI
+     doesn't carry over Hindi history and default back to Hindi      */
+  chatHistory = [];
+  const box = document.getElementById('chat-msgs');
+  box.innerHTML = '';
+  const greet = document.createElement('div');
+  greet.className = 'msg bot';
+  greet.textContent = GREETINGS[lang] || GREETINGS['en-US'];
+  box.appendChild(greet);
+
+  /* ── Hide token card if visible ── */
+  document.getElementById('chat-token').classList.remove('show');
+  document.getElementById('chat-notice').classList.remove('show');
+
+  /* ── Restart mic with new language ── */
   if (micEnabled) { stopMic(); setTimeout(startMic, 200); }
 }
 
