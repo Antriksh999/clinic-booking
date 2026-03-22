@@ -556,15 +556,71 @@ function showThinking(on) {
 }
 
 function showTokenCard(data) {
-  document.getElementById('ct-num').textContent = data.token || '—';
-  document.getElementById('ct-detail').textContent =
-    'Name  : ' + (data.name      || '') + '\n' +
-    'Phone : ' + (data.phone     || '') + '\n' +
-    'Issue : ' + (data.complaint || '') + '\n' +
-    'Date  : ' + (data.date      || '') + '\n' +
-    'Time  : ' + (data.timeslot  || '');
-  document.getElementById('ct-note').textContent = 'Show this token at clinic reception.';
+  /* Strip any markdown formatting the AI put in field values */
+  const clean = (v) => (v || '').replace(/\*\*/g,'').replace(/\*/g,'').replace(/__/g,'').replace(/_/g,'').trim();
+
+  const token     = clean(data.token);
+  const name      = clean(data.name);
+  const phone     = clean(data.phone);
+  const complaint = clean(data.complaint);
+  const date      = clean(data.date);
+  const timeslot  = clean(data.timeslot);
+  const validTill = clean(data.valid_till);
+
+  document.getElementById('ct-num').textContent = token || '—';
+
+  /* Build detail lines — only show fields that have values */
+  const lines = [];
+  if (name)      lines.push('Patient : ' + name);
+  if (phone)     lines.push('Phone   : ' + phone);
+  if (complaint) lines.push('Issue   : ' + complaint);
+  if (date)      lines.push('Date    : ' + date);
+  if (timeslot)  lines.push('Time    : ' + timeslot);
+  if (validTill) lines.push('Valid   : ' + validTill);
+
+  document.getElementById('ct-detail').textContent = lines.join('\n');
+  document.getElementById('ct-note').textContent   = 'Show this token at clinic reception.';
   document.getElementById('chat-token').classList.add('show');
+}
+
+/* ═══════════════════════════════════════════
+   UTILITY — extract clean 10-digit phone from
+   speech input like "seven seven seven 8 8 8 9 9 9 1"
+   or "777 888 9991" (spaces added by speech engine)
+═══════════════════════════════════════════ */
+const WORD_DIGITS = {
+  zero:0,one:1,two:2,three:3,four:4,five:5,
+  six:6,seven:7,eight:8,nine:9,
+  // Hindi spoken digits
+  shunya:0,ek:1,do:2,teen:3,char:4,paanch:5,
+  chhe:6,saat:7,aath:8,nau:9
+};
+
+function extractPhone(text) {
+  /* Replace spoken words with digits */
+  let t = text.toLowerCase();
+  Object.keys(WORD_DIGITS).forEach(w => {
+    t = t.replace(new RegExp('\\b' + w + '\\b', 'g'), WORD_DIGITS[w]);
+  });
+  /* Keep only digit characters */
+  const digits = t.replace(/\D/g, '');
+  return digits;
+}
+
+/* ═══════════════════════════════════════════
+   UTILITY — strip markdown bold/italic from
+   AI responses so token card shows clean text
+   e.g. **T-123** → T-123
+═══════════════════════════════════════════ */
+function stripMarkdown(text) {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')   /* **bold** → bold */
+    .replace(/\*([^*]+)\*/g, '$1')         /* *italic* → italic */
+    .replace(/__([^_]+)__/g, '$1')         /* __bold__ → bold */
+    .replace(/_([^_]+)_/g, '$1')           /* _italic_ → italic */
+    .replace(/\[LANG:[^\]]*\]/gi, '')
+    .replace(/^[\s\n]+/, '')
+    .trim();
 }
 
 /* ═══════════════════════════════════════════
@@ -575,16 +631,30 @@ function showTokenCard(data) {
    - It is NEVER injected into message text or history.
    - The n8n system prompt reads $json.body.lang directly.
    - This prevents the AI from ever echoing [LANG:...] back.
+   - Phone digits are extracted client-side before sending.
 ═══════════════════════════════════════════ */
 let isBotSpeaking = false;
 
+/* Track what we've collected so token card can be populated
+   even if backend doesn't echo all fields back              */
+let collectedData = { name:'', phone:'', complaint:'', date:'', timeslot:'' };
+
 async function sendMsg() {
   const input = document.getElementById('chat-input');
-  const text  = input.value.trim();
+  let   text  = input.value.trim();
   if (!text) return;
   input.value = '';
 
   pauseMicForReply();
+
+  /* ── Client-side phone digit extraction ──
+     Speech engine returns "777 888 9991" or "seven seven seven..."
+     We strip spaces/words → pure digit string before it reaches AI   */
+  const phoneExtracted = extractPhone(text);
+  const looksLikePhone = /^\d{7,12}$/.test(phoneExtracted);
+  if (looksLikePhone && phoneExtracted.length >= 7) {
+    text = phoneExtracted;   /* send clean digits to AI */
+  }
 
   addMsg(text, 'user');
   chatHistory.push({ role:'user', content:text });
@@ -592,9 +662,13 @@ async function sendMsg() {
 
   const now      = new Date();
   const today    = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
-  const langCode = (LANG_UI[micLang] || LANG_UI['en-US']).langCode;  /* 'hindi' | 'english' */
+  /* Full timestamp gives AI current day-of-week, year — helps date parsing */
+  const todayFull = now.toLocaleDateString('en-IN', {
+    weekday:'long', year:'numeric', month:'long', day:'numeric'
+  });
+  const langCode = (LANG_UI[micLang] || LANG_UI['en-US']).langCode;
 
-  /* Fetch available slots silently — send date-specific availability */
+  /* Fetch available slots silently */
   let availableSlots = ALL_SLOTS.slice();
   try {
     const sr = await fetch(SLOTS_WEBHOOK + '?date=' + today);
@@ -608,11 +682,12 @@ async function sendMsg() {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        message:         text,           /* clean user text — no tags injected */
+        message:         text,
         history:         chatHistory,
-        today:           today,
+        today:           today,          /* YYYY-MM-DD for date math */
+        today_full:      todayFull,      /* "Monday, 23 March 2026" — for natural date parsing */
         available_slots: availableSlots,
-        lang:            langCode        /* 'hindi' or 'english' — read by system prompt */
+        lang:            langCode
       })
     });
 
@@ -626,14 +701,18 @@ async function sendMsg() {
       langCode === 'hindi' ? 'Kuch error hua. Dobara try karein.' : 'Something went wrong. Please try again.'
     );
 
-    /* Strip any control tags the AI accidentally includes in its response */
-    reply = reply
-      .replace(/\[LANG:[^\]]*\]/gi, '')
-      .replace(/^[\s\n]+/, '')
-      .trim();
+    /* Strip markdown formatting and control tags from AI reply */
+    reply = stripMarkdown(reply);
 
     addMsg(reply, 'bot');
     chatHistory.push({ role:'assistant', content:reply });
+
+    /* Track collected fields from AI confirmation messages */
+    if (data.name)      collectedData.name      = data.name;
+    if (data.phone)     collectedData.phone     = data.phone;
+    if (data.complaint) collectedData.complaint = data.complaint;
+    if (data.date)      collectedData.date      = data.date;
+    if (data.timeslot)  collectedData.timeslot  = data.timeslot;
 
     const notice = document.getElementById('chat-notice');
     if (data.slot_full) {
@@ -645,7 +724,21 @@ async function sendMsg() {
       notice.classList.remove('show');
     }
 
-    if (data.booked && data.token) showTokenCard(data);
+    if (data.booked && data.token) {
+      /* Merge whatever backend returned with what we tracked locally */
+      showTokenCard({
+        token:     data.token,
+        name:      data.name      || collectedData.name,
+        phone:     data.phone     || collectedData.phone,
+        complaint: data.complaint || collectedData.complaint,
+        date:      data.date      || collectedData.date,
+        timeslot:  data.timeslot  || collectedData.timeslot,
+        valid_till: data.valid_till || ''
+      });
+      /* Reset tracker for next booking */
+      collectedData = { name:'', phone:'', complaint:'', date:'', timeslot:'' };
+    }
+
     speakThenMic(reply);
 
   } catch(err) {
@@ -841,23 +934,20 @@ if (speechSynthesis.onvoiceschanged !== undefined) {
   speechSynthesis.onvoiceschanged = () => { _voices = speechSynthesis.getVoices(); };
 }
 
-function stripInternalTags(text) {
-  /* Remove [LANG: ...] and similar control tags the AI might echo */
-  return text.replace(/\[LANG:\s*\w+\]/gi, '').trim();
-}
-
 function speakThenMic(text) {
   if (!window.speechSynthesis) { resumeMic(); return; }
 
-  const cleanText = stripInternalTags(text);
+  /* Strip markdown before speaking — never read asterisks aloud */
+  const cleanText = stripMarkdown(text);
   if (!cleanText) { resumeMic(); return; }
 
   window.speechSynthesis.cancel();
 
-  /* Small delay so cancel() fully flushes before we queue new utterance */
   setTimeout(() => {
     const u = new SpeechSynthesisUtterance(cleanText);
-    u.rate = 0.88;
+
+    /* English faster (1.1), Hindi natural (0.88) */
+    u.rate = (micLang === 'hi-IN') ? 0.88 : 1.1;
 
     const voices = getVoices();
     let voice = null;
@@ -867,7 +957,7 @@ function speakThenMic(text) {
            || voices.find(v => v.lang.startsWith('hi'));
       u.lang = 'hi-IN';
     } else {
-      /* Strictly English — never pick a Hindi voice even if no en-US found */
+      /* Strictly English — explicitly exclude any India-accented voice */
       voice = voices.find(v => v.lang === 'en-US' && !v.name.toLowerCase().includes('india'))
            || voices.find(v => v.lang === 'en-GB')
            || voices.find(v => v.lang === 'en-AU')
@@ -879,8 +969,6 @@ function speakThenMic(text) {
     u.onstart = () => { isBotSpeaking = true; };
     u.onend   = () => {
       isBotSpeaking = false;
-      /* 900ms buffer — gives audio pipeline time to fully flush
-         before mic opens, preventing self-echo                   */
       setTimeout(resumeMic, 900);
     };
     u.onerror = () => {
