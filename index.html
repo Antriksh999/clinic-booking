@@ -241,7 +241,8 @@ SLOTS.forEach(s=>{
   if(!TAKEN.includes(s))b.onclick=()=>{document.querySelectorAll('.slot-btn').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');document.getElementById('f-slot').value=s;};
   grid.appendChild(b);
 });
-document.getElementById('f-date').min=new Date().toISOString().split('T')[0];
+// FIX 1: Use local date format — toISOString() converts to UTC which shifts date in India (UTC+5:30)
+document.getElementById('f-date').min=localISO(new Date());
 
 let lang='hi';
 const S={
@@ -464,11 +465,17 @@ function process(raw){
     if(TAKEN.includes(sl)){bot(g().eTaken);setChips(g().chips_t);return;}
     col.slot=sl;selSlot(sl);
     const sum=g().confirm(col);
-    bot(sum);setChips(g().chips_ok);step=5;updateProg(5);return;
+    bot(sum);setChips(g().chips_ok);step=5;updateProg(5);
+    // Enable mic so user can also say "haan" by voice to confirm
+    setTimeout(()=>startListen(),1800);
+    return;
   }
 
   if(PNAMES[step]==='confirm'){
-    if(txt.includes('haan')||txt.includes('yes')||txt.includes('confirm')||txt.includes('book')||txt.includes('ok')||txt.includes('theek')||txt.includes('karo')||txt==='ha'){
+    // FIX 3: Expanded Hindi/English affirmative detection — "bilkul","ji","sahi","done","chalega" etc. all work now
+    const YES=['haan','yes','confirm','book','ok','theek','karo','ji','bilkul','sahi','done','correct','chalega','zaroor','haa','proceed','right','kar do','aage','sure'];
+    const isYes=YES.some(w=>txt.includes(w));
+    if(isYes){
       bot(g().booking,false);
       document.getElementById('mic-btn').classList.add('thinking');
       setMicLabel(lang==='hi'?'Booking...':'Booking...');
@@ -502,8 +509,18 @@ async function doBook(){
       document.getElementById('token-meta').textContent=col.date+' at '+col.slot+(data.valid_till?' | Valid till '+data.valid_till:'');
       document.getElementById('status-msg').className='status-msg success';
       document.getElementById('status-msg').textContent=data.message||'Appointment confirmed!';
-      setChips([lang==='hi'?'Doosra appointment book karein':'Book another appointment']);
-      step=0;col={};
+      // FIX 4: Direct onclick handler — NOT process() — so chip text isn't parsed as patient name
+      const cr=document.getElementById('chips-row');cr.innerHTML='';
+      const nb=document.createElement('button');nb.className='chip';
+      nb.textContent=lang==='hi'?'Doosra appointment book karein':'Book another appointment';
+      nb.onclick=()=>{
+        cr.innerHTML='';
+        step=0;col={};updateProg(0);
+        const startMsg=g().start;bot(startMsg);
+        setTimeout(()=>startListen(),1000);
+      };
+      cr.appendChild(nb);
+      // step stays at current value — no reset here — only reset when "book another" is clicked
     } else {
       const m=data.message||(lang==='hi'?'Kuch galat hua. Dobara try karein.':'Something went wrong. Please try again.');
       bot(m);step=4;
@@ -519,35 +536,79 @@ function setsel(id,val){const el=document.getElementById(id);for(let i=0;i<el.op
 function selSlot(sl){document.querySelectorAll('.slot-btn').forEach(b=>{b.classList.remove('selected');if(b.dataset.slot===sl)b.classList.add('selected');});document.getElementById('f-slot').value=sl;}
 function cap(s){return s.replace(/\b\w/g,c=>c.toUpperCase());}
 
+// FIX 1: Local ISO — toISOString() uses UTC which shifts date in IST (UTC+5:30), e.g. midnight IST = prev day UTC
+function localISO(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
 function parseD(txt){
-  const today=new Date();
-  if(txt.includes('aaj')||txt.includes('today'))return iso(today);
-  if(txt.includes('kal')||txt.includes('tomorrow')){const d=new Date(today);d.setDate(d.getDate()+1);return iso(d);}
-  if(txt.includes('parson')||txt.includes('day after')){const d=new Date(today);d.setDate(d.getDate()+2);return iso(d);}
+  const today=new Date();today.setHours(12,0,0,0); // use noon to avoid any midnight UTC edge
+  if(txt.includes('aaj')||txt.includes('today'))return localISO(today);
+  if(txt.includes('kal')||txt.includes('tomorrow')){const d=new Date(today);d.setDate(d.getDate()+1);return localISO(d);}
+  if(txt.includes('parson')||txt.includes('day after')){const d=new Date(today);d.setDate(d.getDate()+2);return localISO(d);}
   const days={sunday:0,somwar:1,monday:1,mangalwar:2,tuesday:2,budhwar:3,wednesday:3,guruwar:4,thursday:4,shukrawar:5,friday:5,shaniwar:6,saturday:6};
-  for(const[k,v] of Object.entries(days)){if(txt.includes(k)){const d=new Date(today);const df=(v-d.getDay()+7)%7||7;d.setDate(d.getDate()+df);return iso(d);}}
+  for(const[k,v] of Object.entries(days)){if(txt.includes(k)){const d=new Date(today);const df=(v-d.getDay()+7)%7||7;d.setDate(d.getDate()+df);return localISO(d);}}
   const months=['january','february','march','april','may','june','july','august','september','october','november','december'];
-  for(let m=0;m<months.length;m++){if(txt.includes(months[m])){const match=txt.match(/(\d{1,2})/);if(match){const d=new Date(today.getFullYear(),m,parseInt(match[1]));if(d<today)d.setFullYear(d.getFullYear()+1);return iso(d);}}}
+  for(let m=0;m<months.length;m++){
+    if(txt.includes(months[m])){
+      const match=txt.match(/(\d{1,2})/);
+      if(match){
+        const d=new Date(today.getFullYear(),m,parseInt(match[1]),12,0,0);
+        if(d<today)d.setFullYear(d.getFullYear()+1);
+        return localISO(d);
+      }
+    }
+  }
   const m2=txt.match(/(\d{1,2})[\/\-](\d{1,2})/);
-  if(m2){const d=new Date(today.getFullYear(),parseInt(m2[2])-1,parseInt(m2[1]));if(d<today)d.setFullYear(d.getFullYear()+1);return iso(d);}
+  if(m2){const d=new Date(today.getFullYear(),parseInt(m2[2])-1,parseInt(m2[1]),12,0,0);if(d<today)d.setFullYear(d.getFullYear()+1);return localISO(d);}
   return null;
 }
-function iso(d){return d.toISOString().split('T')[0];}
+
+// FIX 2: Hindi number words → digits before matching
+// "do baje" → "2 baje", "nau baje" → "9 baje", "gyarah baje" → "11 baje" etc.
+const HINDI_NUMS={
+  '\\bek\\b':1,'\\bdo\\b':2,'\\bteen\\b':3,'\\bchar\\b':4,'\\bpaanch\\b':5,
+  '\\bchhe\\b':6,'\\bsaat\\b':7,'\\baath\\b':8,'\\bnau\\b':9,
+  '\\bdas\\b':10,'\\bgyarah\\b':11,'\\bbarah\\b':12,
+  '\\bone\\b':1,'\\btwo\\b':2,'\\bthree\\b':3,'\\bfour\\b':4,'\\bfive\\b':5,
+  '\\bsix\\b':6,'\\bseven\\b':7,'\\beight\\b':8,'\\bnine\\b':9,
+  '\\bten\\b':10,'\\beleven\\b':11,'\\btwelve\\b':12
+};
+function normalizeSpeech(txt){
+  let t=txt;
+  for(const[pat,num] of Object.entries(HINDI_NUMS)){t=t.replace(new RegExp(pat,'g'),num+' ');}
+  return t;
+}
 
 function matchS(txt){
-  for(const s of SLOTS){if(txt.includes(s.toLowerCase()))return s;}
-  const m=txt.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|baje|baj)/i);
+  const n=normalizeSpeech(txt); // convert Hindi/English number words to digits
+  // Direct slot text match
+  for(const s of SLOTS){if(n.includes(s.toLowerCase())||txt.includes(s.toLowerCase()))return s;}
+  // Regex: digit + optional minutes + AM/PM/baje
+  const m=n.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|baje|baj)/i);
   if(m){
     let h=parseInt(m[1]),mn=parseInt(m[2]||'0');
     const suf=(m[3]||'').toLowerCase().replace('.','');
-    if((suf==='pm'||(suf==='baje'&&h<9))&&h!==12)h+=12;
+    if(suf==='pm'&&h!==12)h+=12;
     if(suf==='am'&&h===12)h=0;
+    // "baje" rule: clinic is 9AM–5:30PM. Hours 1–8 with "baje" = PM. Hours 9–12 = AM (morning)
+    if(suf.startsWith('baj')&&h<=8)h+=12;
     const target=h*60+mn;
-    for(const sl of SLOTS){const p=sl.match(/(\d+):(\d+)\s*(AM|PM)/i);let sh=parseInt(p[1]),sm=parseInt(p[2]);if(p[3].toLowerCase()==='pm'&&sh!==12)sh+=12;if(p[3].toLowerCase()==='am'&&sh===12)sh=0;if(Math.abs(sh*60+sm-target)<=20)return sl;}
+    let best=null,bestDiff=21;
+    for(const sl of SLOTS){
+      const p=sl.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      let sh=parseInt(p[1]),sm=parseInt(p[2]);
+      if(p[3].toLowerCase()==='pm'&&sh!==12)sh+=12;
+      if(p[3].toLowerCase()==='am'&&sh===12)sh=0;
+      const diff=Math.abs(sh*60+sm-target);
+      if(diff<bestDiff){bestDiff=diff;best=sl;}
+    }
+    if(best)return best;
   }
-  if(txt.includes('subah')||txt.includes('morning'))return '9:00 AM';
-  if(txt.includes('dopahar')||txt.includes('noon'))return '12:00 PM';
-  if(txt.includes('sham')||txt.includes('evening'))return '4:00 PM';
+  // Keyword fallbacks
+  if(txt.includes('subah')||txt.includes('morning')||txt.includes('suba')||txt.includes('savere'))return '9:00 AM';
+  if(txt.includes('dopahar')||txt.includes('noon')||txt.includes('duphar')||txt.includes('lunch'))return '12:00 PM';
+  if(txt.includes('sham')||txt.includes('evening')||txt.includes('shyam'))return '4:00 PM';
   return null;
 }
 
