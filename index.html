@@ -302,16 +302,71 @@ body{
 .token-value{font-family:var(--serif);font-size:32px;color:var(--green);margin:2px 0 0}
 .token-meta{font-family:var(--mono);font-size:10px;color:var(--green2);margin-top:4px;line-height:1.7}
 
-/* ─── SLOT LEGEND ─── */
-.slot-legend{
-  display:flex;gap:12px;margin-top:8px;
-  font-family:var(--mono);font-size:9px;color:var(--ink3);letter-spacing:0.5px;
+/* ─── TOKEN CHECKER CARD ─── */
+.checker-card{border:2px solid var(--ink);background:#fff;box-shadow:var(--shadow-md);margin-bottom:1.5rem}
+.checker-header{
+  padding:12px 16px;border-bottom:2px solid var(--ink);
+  display:flex;align-items:baseline;justify-content:space-between;
 }
-.legend-item{display:flex;align-items:center;gap:4px}
-.legend-dot{width:8px;height:8px;border-radius:1px;flex-shrink:0}
-.legend-dot.available{background:var(--paper2);border:1px solid var(--border2)}
-.legend-dot.full{background:#ddd;border:1px solid #bbb}
-.legend-dot.selected{background:var(--green-tint);border:1px solid var(--green2)}
+.checker-heading{font-family:var(--serif);font-size:17px;color:var(--ink)}
+.checker-sub{font-family:var(--mono);font-size:9px;color:var(--ink3);letter-spacing:1px;text-transform:uppercase}
+.checker-body{padding:16px}
+.checker-input-row{display:flex;gap:8px}
+.checker-input{
+  flex:1;height:38px;padding:0 10px;font-size:13px;font-family:var(--mono);
+  background:var(--paper);border:1.5px solid var(--border);
+  border-radius:var(--radius);color:var(--ink);outline:none;
+  transition:border-color 0.12s;letter-spacing:1px;text-transform:uppercase;
+}
+.checker-input:focus{border-color:var(--green2);box-shadow:0 0 0 2px rgba(26,92,66,0.1)}
+.checker-input::placeholder{text-transform:none;letter-spacing:0;color:rgba(0,0,0,0.3)}
+.checker-btn{
+  height:38px;padding:0 16px;background:var(--ink);border:2px solid var(--ink);
+  border-radius:var(--radius);color:#fff;font-size:11px;font-weight:500;
+  font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;
+  cursor:pointer;transition:all 0.12s;box-shadow:var(--shadow);white-space:nowrap;flex-shrink:0;
+}
+.checker-btn:hover{background:var(--green);border-color:var(--green)}
+.checker-btn:disabled{background:var(--border);border-color:var(--border);color:var(--ink3);cursor:not-allowed}
+.checker-hint{font-family:var(--mono);font-size:9px;color:var(--ink3);margin-top:7px;letter-spacing:0.3px}
+
+/* Token result panel */
+.token-result{display:none;margin-top:12px;border:1.5px solid var(--border2);border-radius:var(--radius);overflow:hidden}
+.token-result.show{display:block;animation:fadein 0.25s ease}
+.tr-header{
+  padding:10px 14px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border2);
+}
+.tr-header.status-waiting{background:var(--amber-tint);border-color:#e8d5a0}
+.tr-header.status-complete{background:var(--green-tint);border-color:#a8d8c0}
+.tr-header.status-cancelled{background:var(--red-tint);border-color:#e8b0b0}
+.tr-token-id{font-family:var(--serif);font-size:22px;color:var(--ink)}
+.tr-badge{
+  font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;
+  padding:3px 8px;border-radius:1px;font-weight:500;
+}
+.tr-badge.waiting{background:var(--amber);color:#fff}
+.tr-badge.complete{background:var(--green);color:#fff}
+.tr-badge.cancelled{background:var(--red);color:#fff}
+.tr-body{padding:12px 14px;background:#fff}
+.tr-row{
+  display:flex;align-items:baseline;gap:8px;
+  padding:4px 0;border-bottom:0.5px solid var(--border2);
+  font-size:11.5px;
+}
+.tr-row:last-child{border-bottom:none}
+.tr-key{font-family:var(--mono);font-size:9px;color:var(--ink3);letter-spacing:1px;
+        text-transform:uppercase;min-width:80px;flex-shrink:0}
+.tr-val{font-family:var(--sans);color:var(--ink);font-weight:400}
+.tr-footer{padding:10px 14px;border-top:1px solid var(--border2);background:var(--paper2)}
+.tr-new-btn{
+  width:100%;height:36px;background:transparent;border:1.5px solid var(--ink);
+  border-radius:var(--radius);color:var(--ink);font-size:11px;
+  font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;
+  cursor:pointer;transition:all 0.12s;
+}
+.tr-new-btn:hover{background:var(--ink);color:#fff}
 </style>
 </head>
 <body>
@@ -383,9 +438,42 @@ body{
 
   <div class="divider">or fill manually</div>
 
+  <!-- ── TOKEN STATUS CHECKER ── -->
+  <div class="section-label">Check Token Status</div>
+  <div class="checker-card">
+    <div class="checker-header">
+      <span class="checker-heading">Token Lookup</span>
+      <span class="checker-sub">Enter your token ID</span>
+    </div>
+    <div class="checker-body">
+      <div class="checker-input-row">
+        <input class="checker-input" id="tk-input" type="text"
+               placeholder="e.g. T-457" maxlength="6"
+               onkeydown="if(event.key==='Enter')checkToken()"/>
+        <button class="checker-btn" id="tk-btn" onclick="checkToken()">Check</button>
+      </div>
+      <div class="checker-hint">You can also tell the AI receptionist your token number above.</div>
+
+      <!-- Result panel — hidden until lookup -->
+      <div class="token-result" id="tk-result">
+        <div class="tr-header" id="tk-result-header">
+          <span class="tr-token-id" id="tk-result-id">—</span>
+          <span class="tr-badge" id="tk-result-badge">—</span>
+        </div>
+        <div class="tr-body" id="tk-result-body"></div>
+        <div class="tr-footer">
+          <button class="tr-new-btn" onclick="startNewAppointment()">+ New Appointment</button>
+        </div>
+      </div>
+
+      <!-- Error message -->
+      <div class="status-msg" id="tk-msg"></div>
+    </div>
+  </div>
+
   <!-- Manual Form -->
   <div class="section-label">Manual Entry</div>
-  <div class="form-card">
+  <div class="form-card" id="manual-form-card">
     <div class="form-header">
       <span class="form-heading">Appointment Form</span>
       <span class="form-sub">All fields required</span>
@@ -402,9 +490,9 @@ body{
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Complaint</label>
+        <label class="form-label">Health Problem</label>
         <select class="form-select" id="f-complaint">
-          <option value="">Select complaint</option>
+          <option value="">Select health problem</option>
           <option>Fever</option><option>Headache</option><option>Stomach Pain</option>
           <option>Cold &amp; Cough</option><option>Back Pain</option><option>Chest Pain</option>
           <option>Skin Issue</option><option>Eye Problem</option><option>Ear Problem</option>
@@ -446,10 +534,11 @@ body{
 ═══════════════════════════════════════════ */
 const AI_WEBHOOK        = 'https://ashash999.app.n8n.cloud/webhook/ai-agent';
 const BOOK_WEBHOOK      = 'https://ashash999.app.n8n.cloud/webhook/book-appointment';
-/* New endpoint — returns {slots:{[slot]:count}} for a given date
-   e.g. GET /webhook/slot-availability?date=2026-03-25
-   Response: { "slots": { "9:00 AM": 3, "10:00 AM": 5, ... } }            */
+/* GET /webhook/slot-availability?date=YYYY-MM-DD → { slots:{[slot]:count} } */
 const SLOTS_WEBHOOK     = 'https://ashash999.app.n8n.cloud/webhook/slot-availability';
+/* GET /webhook/token-status?token=T-457 → { found, token, name, phone, health_problem,
+   date, timeslot, status, valid_till, booked_on }                              */
+const TOKEN_WEBHOOK     = 'https://ashash999.app.n8n.cloud/webhook/token-status';
 const MAX_PER_SLOT      = 5;   /* max bookings per slot per date */
 
 /* ═══════════════════════════════════════════
@@ -850,14 +939,14 @@ function startMic() {
       micActive = false; updateMicUI();
       /* Auto-restart if still enabled and not paused */
       if (micEnabled && !micPaused) {
-        setTimeout(startMic, 80);
+        setTimeout(startMic, 300);
       }
     };
 
     rec.onerror = e => {
       micActive = false; updateMicUI();
       if (e.error === 'no-speech' && micEnabled && !micPaused) {
-        setTimeout(startMic, 150);
+        setTimeout(startMic, 500);
       }
     };
 
@@ -879,7 +968,7 @@ function pauseMicForReply() {
 }
 function resumeMic() {
   micPaused = false;
-  if (micEnabled) setTimeout(startMic, 100);
+  if (micEnabled) setTimeout(startMic, 400);
 }
 
 function toggleMic() {
@@ -970,12 +1059,12 @@ function setLang(lang, btnId) {
   document.getElementById('chat-notice').classList.remove('show');
 
   /* ── 5. Restart mic in new language ── */
-  if (micEnabled) { stopMic(); setTimeout(startMic, 100); }
+  if (micEnabled) { stopMic(); setTimeout(startMic, 250); }
 }
 
 /* Auto-start mic on page load */
 window.addEventListener('load', () => {
-  if (SpeechRec) setTimeout(startMic, 400);
+  if (SpeechRec) setTimeout(startMic, 1200);
 });
 
 /* ═══════════════════════════════════════════
@@ -1068,8 +1157,101 @@ function speakThenMic(text) {
 }
 
 /* ═══════════════════════════════════════════
-   MANUAL FORM SUBMIT
+   TOKEN STATUS LOOKUP
+   Calls GET /webhook/token-status?token=T-xxx
+   Expected response shape:
+   {
+     found: true,
+     token: "T-457",
+     name: "Yash",
+     phone: "9876543210",
+     health_problem: "Fever",
+     date: "2026-03-26",
+     timeslot: "10:00 AM",
+     status: "Waiting",       // "Waiting" | "Complete"
+     valid_till: "2026-04-02",
+     booked_on: "2026-03-24T13:41Z"
+   }
+   If not found: { found: false, message: "Token not found" }
 ═══════════════════════════════════════════ */
+async function checkToken() {
+  const raw = document.getElementById('tk-input').value.trim().toUpperCase();
+  /* Accept bare numbers — auto-prefix T- */
+  const token = raw.startsWith('T-') ? raw : (raw ? 'T-' + raw : '');
+
+  const msg    = document.getElementById('tk-msg');
+  const result = document.getElementById('tk-result');
+  const btn    = document.getElementById('tk-btn');
+
+  if (!token) {
+    msg.className = 'status-msg error'; msg.textContent = 'Please enter a token number.';
+    result.classList.remove('show'); return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Checking...';
+  msg.className = 'status-msg loading'; msg.textContent = 'Looking up token...';
+  result.classList.remove('show');
+
+  try {
+    const res  = await fetch(TOKEN_WEBHOOK + '?token=' + encodeURIComponent(token));
+    const data = await res.json();
+
+    btn.disabled = false; btn.textContent = 'Check';
+
+    if (!data.found) {
+      msg.className = 'status-msg error';
+      msg.textContent = data.message || 'Token not found. Please check the number and try again.';
+      return;
+    }
+
+    /* Clear error message */
+    msg.className = 'status-msg'; msg.textContent = '';
+
+    /* Populate result header */
+    const statusRaw = (data.status || 'Waiting').toLowerCase();
+    const hdr = document.getElementById('tk-result-header');
+    hdr.className = 'tr-header status-' + statusRaw;
+
+    document.getElementById('tk-result-id').textContent    = data.token || token;
+    const badge = document.getElementById('tk-result-badge');
+    badge.className   = 'tr-badge ' + statusRaw;
+    badge.textContent = data.status || 'Waiting';
+
+    /* Build detail rows */
+    const fields = [
+      ['Patient',       data.name],
+      ['Phone',         data.phone],
+      ['Health Problem',data.health_problem || data.complaint],
+      ['Date',          data.date],
+      ['Time',          data.timeslot],
+      ['Booked On',     data.booked_on ? data.booked_on.split('T')[0] : ''],
+      ['Valid Till',    data.valid_till],
+    ];
+    const body = document.getElementById('tk-result-body');
+    body.innerHTML = fields
+      .filter(([,v]) => v)
+      .map(([k,v]) =>
+        `<div class="tr-row"><span class="tr-key">${k}</span><span class="tr-val">${v}</span></div>`
+      ).join('');
+
+    result.classList.add('show');
+
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Check';
+    msg.className = 'status-msg error';
+    msg.textContent = 'Could not connect to server. Please check your connection.';
+  }
+}
+
+/* Scroll to and focus the manual appointment form */
+function startNewAppointment() {
+  const formCard = document.getElementById('manual-form-card');
+  formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => document.getElementById('f-name').focus(), 400);
+  /* Reset form state */
+  resetForm();
+}
+
 function resetForm() {
   ['f-name','f-phone','f-date'].forEach(id => { document.getElementById(id).value=''; });
   document.getElementById('f-complaint').value = '';
@@ -1080,6 +1262,11 @@ function resetForm() {
   document.getElementById('token-box').classList.remove('show');
   const btn = document.getElementById('submit-btn');
   btn.textContent='Confirm Appointment'; btn.onclick=submitForm;
+  /* Also clear token checker so it doesn't show stale result */
+  document.getElementById('tk-result').classList.remove('show');
+  document.getElementById('tk-msg').className='status-msg';
+  document.getElementById('tk-msg').textContent='';
+  document.getElementById('tk-input').value='';
 }
 
 async function submitForm() {
