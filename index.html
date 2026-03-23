@@ -850,14 +850,14 @@ function startMic() {
       micActive = false; updateMicUI();
       /* Auto-restart if still enabled and not paused */
       if (micEnabled && !micPaused) {
-        setTimeout(startMic, 300);
+        setTimeout(startMic, 200);
       }
     };
 
     rec.onerror = e => {
       micActive = false; updateMicUI();
       if (e.error === 'no-speech' && micEnabled && !micPaused) {
-        setTimeout(startMic, 500);
+        setTimeout(startMic, 400);
       }
     };
 
@@ -879,7 +879,7 @@ function pauseMicForReply() {
 }
 function resumeMic() {
   micPaused = false;
-  if (micEnabled) setTimeout(startMic, 400);
+  if (micEnabled) setTimeout(startMic, 300);
 }
 
 function toggleMic() {
@@ -975,7 +975,7 @@ function setLang(lang, btnId) {
 
 /* Auto-start mic on page load */
 window.addEventListener('load', () => {
-  if (SpeechRec) setTimeout(startMic, 1200);
+  if (SpeechRec) setTimeout(startMic, 1000);
 });
 
 /* ═══════════════════════════════════════════
