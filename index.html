@@ -341,7 +341,10 @@ body{
 
     <div class="ai-panel-title">
       <strong id="panel-title-strong">अपॉइंटमेंट बुक करें — बोलकर या टाइप करके।</strong><br/>
-      <span id="panel-title-sub">भाषा बदलने के लिए नीचे HI / EN दबाएं।</span>
+      <span id="panel-title-sub">भाषा बदलने के लिए नीचे HI / EN दबाएं।</span><br/>
+      <span id="panel-hint" style="font-size:10px;color:rgba(255,255,255,0.22);font-family:var(--mono);">
+        Say "change name / phone / date" to correct any entry.
+      </span>
     </div>
 
     <div class="chat-msgs" id="chat-msgs">
@@ -634,16 +637,43 @@ function stripMarkdown(text) {
    - Phone digits are extracted client-side before sending.
 ═══════════════════════════════════════════ */
 let isBotSpeaking = false;
+let isSending     = false;   /* lock — prevents concurrent API calls that crash the flow */
 
 /* Track what we've collected so token card can be populated
    even if backend doesn't echo all fields back              */
 let collectedData = { name:'', phone:'', complaint:'', date:'', timeslot:'' };
 
+/* ─── CORRECTION INTENT KEYWORDS ───
+   If patient says any of these while bot is speaking,
+   we stop TTS immediately and process their input right away. */
+const CORRECTION_WORDS = [
+  'galat','change','badlo','wrong','nahi','actually','correct',
+  'update','fix','different','alag','I meant','sahi nahi','no wait'
+];
+function hasCorrection(txt) {
+  const lower = txt.toLowerCase();
+  return CORRECTION_WORDS.some(w => lower.includes(w));
+}
+
 async function sendMsg() {
   const input = document.getElementById('chat-input');
   let   text  = input.value.trim();
   if (!text) return;
+
+  /* LOCK — prevent crash from concurrent calls (e.g. mic fires while request is in-flight) */
+  if (isSending) {
+    /* Queue the input briefly — let the in-flight request complete first */
+    input.value = text;
+    return;
+  }
+  isSending = true;
   input.value = '';
+
+  /* Stop TTS immediately if user speaks — especially for corrections */
+  if (isBotSpeaking) {
+    window.speechSynthesis.cancel();
+    isBotSpeaking = false;
+  }
 
   pauseMicForReply();
 
@@ -668,14 +698,17 @@ async function sendMsg() {
   });
   const langCode = (LANG_UI[micLang] || LANG_UI['en-US']).langCode;
 
-  /* Fetch available slots silently */
+  /* Fetch available slots for the relevant date.
+     If patient already gave a date (Step 4 done), fetch for that date — else fetch for today.
+     This ensures slot availability is always fresh from server, preventing cross-user double-booking. */
   let availableSlots = ALL_SLOTS.slice();
   try {
-    const sr = await fetch(SLOTS_WEBHOOK + '?date=' + today);
+    const slotDate = collectedData.date || today;
+    const sr = await fetch(SLOTS_WEBHOOK + '?date=' + slotDate);
     const sd = await sr.json();
     const counts = sd.slots || {};
     availableSlots = ALL_SLOTS.filter(s => (counts[s] || 0) < MAX_PER_SLOT);
-  } catch(e) {}
+  } catch(e) { /* silently fall back to all slots if endpoint unavailable */ }
 
   try {
     const res = await fetch(AI_WEBHOOK, {
@@ -714,6 +747,14 @@ async function sendMsg() {
     if (data.date)      collectedData.date      = data.date;
     if (data.timeslot)  collectedData.timeslot  = data.timeslot;
 
+    /* Also sniff YYYY-MM-DD from the user's message or AI reply so
+       we know the appointment date BEFORE the booking tool fires —
+       needed for correct slot availability fetch on next turn.       */
+    if (!collectedData.date) {
+      const dateSniff = (text + ' ' + reply).match(/\b(202\d-\d{2}-\d{2})\b/);
+      if (dateSniff) collectedData.date = dateSniff[1];
+    }
+
     const notice = document.getElementById('chat-notice');
     if (data.slot_full) {
       notice.textContent = langCode === 'hindi'
@@ -726,15 +767,18 @@ async function sendMsg() {
 
     if (data.booked && data.token) {
       /* Merge whatever backend returned with what we tracked locally */
+      const bookedDate = data.date || collectedData.date;
       showTokenCard({
         token:     data.token,
         name:      data.name      || collectedData.name,
         phone:     data.phone     || collectedData.phone,
         complaint: data.complaint || collectedData.complaint,
-        date:      data.date      || collectedData.date,
+        date:      bookedDate,
         timeslot:  data.timeslot  || collectedData.timeslot,
         valid_till: data.valid_till || ''
       });
+      /* Refresh manual form slot grid — keeps cross-user slot state accurate */
+      if (bookedDate) loadSlotsForDate(bookedDate);
       /* Reset tracker for next booking */
       collectedData = { name:'', phone:'', complaint:'', date:'', timeslot:'' };
     }
@@ -748,6 +792,8 @@ async function sendMsg() {
       : 'Could not connect to server. Please check your connection.';
     addMsg(errMsg, 'bot');
     speakThenMic(errMsg);
+  } finally {
+    isSending = false;   /* always release lock */
   }
 }
 
@@ -841,8 +887,22 @@ function toggleMic() {
     addMsg('Voice input ke liye Chrome browser use karein.', 'bot'); return;
   }
   micEnabled = !micEnabled;
-  if (micEnabled) { micPaused = false; startMic(); }
-  else { stopMic(); }
+  if (micEnabled) {
+    micPaused = false;
+    /* Stop TTS immediately so user can speak right away */
+    if (isBotSpeaking) {
+      window.speechSynthesis.cancel();
+      isBotSpeaking = false;
+    }
+    startMic();
+  } else {
+    /* Also stop TTS when user turns mic off mid-speech */
+    if (isBotSpeaking) {
+      window.speechSynthesis.cancel();
+      isBotSpeaking = false;
+    }
+    stopMic();
+  }
   updateMicUI();
 }
 
@@ -889,6 +949,10 @@ function setLang(lang, btnId) {
   document.getElementById('panel-title-strong').textContent = ui.titleStrong;
   document.getElementById('panel-title-sub').textContent   = ui.titleSub;
   document.getElementById('chat-input').placeholder        = ui.placeholder;
+  document.getElementById('panel-hint').textContent        =
+    lang === 'hi-IN'
+      ? '"Naam badlo" / "number badlo" / "date badlo" bolkar koi bhi entry theek karein.'
+      : 'Say "change name / phone / date / slot" to correct any entry.';
 
   /* ── 3. Reset conversation entirely — fresh start in selected language.
      This is the critical fix: old Hindi history must be wiped so the AI
@@ -934,11 +998,34 @@ if (speechSynthesis.onvoiceschanged !== undefined) {
   speechSynthesis.onvoiceschanged = () => { _voices = speechSynthesis.getVoices(); };
 }
 
+/* ═══════════════════════════════════════════
+   TTS TEXT PREPARATION
+   Truncate long list-based responses so TTS doesn't read all options aloud.
+   If the text contains a numbered list (like complaint options or time slots),
+   speak only the question part before the list starts.
+═══════════════════════════════════════════ */
+function prepareTTSText(text) {
+  if (!text) return text;
+  /* Find the first numbered list item like "1." or "1 ." and cut before it */
+  const listMatch = text.match(/\b1[\.\)]\s/);
+  if (listMatch) {
+    const cutAt = text.indexOf(listMatch[0]);
+    const question = text.substring(0, cutAt).trim();
+    return question || text;
+  }
+  /* Also cut before "Morning :" or "Available slots:" style blocks */
+  const slotBlock = text.search(/Morning\s*:|Available\s*slots\s*:|Uplabdh\s*slots\s*:|Morning\s*:/i);
+  if (slotBlock > 0) {
+    return text.substring(0, slotBlock).trim() || text;
+  }
+  return text;
+}
+
 function speakThenMic(text) {
   if (!window.speechSynthesis) { resumeMic(); return; }
 
-  /* Strip markdown before speaking — never read asterisks aloud */
-  const cleanText = stripMarkdown(text);
+  /* Strip markdown then truncate lists for TTS — never read options aloud */
+  const cleanText = prepareTTSText(stripMarkdown(text));
   if (!cleanText) { resumeMic(); return; }
 
   window.speechSynthesis.cancel();
