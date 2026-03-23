@@ -850,7 +850,7 @@ function startMic() {
       micActive = false; updateMicUI();
       /* Auto-restart if still enabled and not paused */
       if (micEnabled && !micPaused) {
-        setTimeout(startMic, 200);
+        setTimeout(startMic, 10);
       }
     };
 
