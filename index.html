@@ -850,14 +850,14 @@ function startMic() {
       micActive = false; updateMicUI();
       /* Auto-restart if still enabled and not paused */
       if (micEnabled && !micPaused) {
-        setTimeout(startMic, 10);
+        setTimeout(startMic, 80);
       }
     };
 
     rec.onerror = e => {
       micActive = false; updateMicUI();
       if (e.error === 'no-speech' && micEnabled && !micPaused) {
-        setTimeout(startMic, 400);
+        setTimeout(startMic, 150);
       }
     };
 
@@ -879,7 +879,7 @@ function pauseMicForReply() {
 }
 function resumeMic() {
   micPaused = false;
-  if (micEnabled) setTimeout(startMic, 200);
+  if (micEnabled) setTimeout(startMic, 100);
 }
 
 function toggleMic() {
@@ -970,12 +970,12 @@ function setLang(lang, btnId) {
   document.getElementById('chat-notice').classList.remove('show');
 
   /* ── 5. Restart mic in new language ── */
-  if (micEnabled) { stopMic(); setTimeout(startMic, 250); }
+  if (micEnabled) { stopMic(); setTimeout(startMic, 100); }
 }
 
 /* Auto-start mic on page load */
 window.addEventListener('load', () => {
-  if (SpeechRec) setTimeout(startMic, 1000);
+  if (SpeechRec) setTimeout(startMic, 400);
 });
 
 /* ═══════════════════════════════════════════
