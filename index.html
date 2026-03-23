@@ -443,16 +443,16 @@ body{
   <div class="checker-card">
     <div class="checker-header">
       <span class="checker-heading">Token Lookup</span>
-      <span class="checker-sub">Enter your token ID</span>
+      <span class="checker-sub">Token number or phone</span>
     </div>
     <div class="checker-body">
       <div class="checker-input-row">
         <input class="checker-input" id="tk-input" type="text"
-               placeholder="e.g. T-457" maxlength="6"
+               placeholder="457 or 9876543210" maxlength="10"
                onkeydown="if(event.key==='Enter')checkToken()"/>
         <button class="checker-btn" id="tk-btn" onclick="checkToken()">Check</button>
       </div>
-      <div class="checker-hint">You can also tell the AI receptionist your token number above.</div>
+      <div class="checker-hint">Enter token number (e.g. 457) or your 10-digit registered phone number. You can also say your token to the AI above.</div>
 
       <!-- Result panel — hidden until lookup -->
       <div class="token-result" id="tk-result">
@@ -536,8 +536,10 @@ const AI_WEBHOOK        = 'https://ashash999.app.n8n.cloud/webhook/ai-agent';
 const BOOK_WEBHOOK      = 'https://ashash999.app.n8n.cloud/webhook/book-appointment';
 /* GET /webhook/slot-availability?date=YYYY-MM-DD → { slots:{[slot]:count} } */
 const SLOTS_WEBHOOK     = 'https://ashash999.app.n8n.cloud/webhook/slot-availability';
-/* GET /webhook/token-status?token=T-457 → { found, token, name, phone, health_problem,
-   date, timeslot, status, valid_till, booked_on }                              */
+/* GET /webhook/token-status?token=T-457  → lookup by token number
+   GET /webhook/token-status?phone=9876543210 → lookup by phone
+   Response: { found, token, name, health_problem, date, timeslot,
+               status, valid_till, booked_on }  (phone excluded from display) */
 const TOKEN_WEBHOOK     = 'https://ashash999.app.n8n.cloud/webhook/token-status';
 const MAX_PER_SLOT      = 5;   /* max bookings per slot per date */
 
@@ -1158,79 +1160,98 @@ function speakThenMic(text) {
 
 /* ═══════════════════════════════════════════
    TOKEN STATUS LOOKUP
-   Calls GET /webhook/token-status?token=T-xxx
-   Expected response shape:
+   Accepts:
+     - Token number only:  "457" or "T-457"  → sends ?token=T-457
+     - Phone number:       "9876543210"       → sends ?phone=9876543210
+
+   Backend GET /webhook/token-status expected response:
    {
      found: true,
      token: "T-457",
      name: "Yash",
-     phone: "9876543210",
-     health_problem: "Fever",
+     phone: "9876543210",        ← backend includes it but frontend hides it
+     health_problem: "Fever",    ← also accepts "complaint" key
      date: "2026-03-26",
      timeslot: "10:00 AM",
-     status: "Waiting",       // "Waiting" | "Complete"
+     status: "Waiting",          ← "Waiting" | "Complete"
      valid_till: "2026-04-02",
      booked_on: "2026-03-24T13:41Z"
    }
-   If not found: { found: false, message: "Token not found" }
+   If not found: { found: false, message: "..." }
 ═══════════════════════════════════════════ */
 async function checkToken() {
-  const raw = document.getElementById('tk-input').value.trim().toUpperCase();
-  /* Accept bare numbers — auto-prefix T- */
-  const token = raw.startsWith('T-') ? raw : (raw ? 'T-' + raw : '');
-
+  const raw = document.getElementById('tk-input').value.trim();
   const msg    = document.getElementById('tk-msg');
   const result = document.getElementById('tk-result');
   const btn    = document.getElementById('tk-btn');
 
-  if (!token) {
-    msg.className = 'status-msg error'; msg.textContent = 'Please enter a token number.';
+  if (!raw) {
+    msg.className = 'status-msg error';
+    msg.textContent = 'Please enter a token number or phone number.';
     result.classList.remove('show'); return;
   }
 
+  /* ── Determine lookup type ──────────────────────────────────────
+     Phone:  exactly 10 digits (no letters)
+     Token:  1-3 digits OR "T-" followed by digits           */
+  const digitsOnly = raw.replace(/\D/g, '');
+  let queryParam;
+
+  if (digitsOnly.length === 10 && /^\d{10}$/.test(digitsOnly)) {
+    /* 10-digit → phone lookup */
+    queryParam = 'phone=' + digitsOnly;
+  } else {
+    /* Token number — strip T- prefix if present, then re-add cleanly */
+    const tokenNum = raw.toUpperCase().replace(/^T[-\s]?/, '').replace(/\D/g, '');
+    if (!tokenNum) {
+      msg.className = 'status-msg error';
+      msg.textContent = 'Invalid input. Enter token number (e.g. 457) or 10-digit phone.';
+      result.classList.remove('show'); return;
+    }
+    queryParam = 'token=T-' + tokenNum;
+  }
+
   btn.disabled = true; btn.textContent = 'Checking...';
-  msg.className = 'status-msg loading'; msg.textContent = 'Looking up token...';
+  msg.className = 'status-msg loading'; msg.textContent = 'Looking up...';
   result.classList.remove('show');
 
   try {
-    const res  = await fetch(TOKEN_WEBHOOK + '?token=' + encodeURIComponent(token));
+    const res  = await fetch(TOKEN_WEBHOOK + '?' + queryParam);
     const data = await res.json();
 
     btn.disabled = false; btn.textContent = 'Check';
 
     if (!data.found) {
       msg.className = 'status-msg error';
-      msg.textContent = data.message || 'Token not found. Please check the number and try again.';
+      msg.textContent = data.message || 'No appointment found. Please check the number and try again.';
       return;
     }
 
-    /* Clear error message */
     msg.className = 'status-msg'; msg.textContent = '';
 
-    /* Populate result header */
+    /* ── Status header ── */
     const statusRaw = (data.status || 'Waiting').toLowerCase();
     const hdr = document.getElementById('tk-result-header');
     hdr.className = 'tr-header status-' + statusRaw;
 
-    document.getElementById('tk-result-id').textContent    = data.token || token;
+    document.getElementById('tk-result-id').textContent = data.token || '—';
     const badge = document.getElementById('tk-result-badge');
     badge.className   = 'tr-badge ' + statusRaw;
     badge.textContent = data.status || 'Waiting';
 
-    /* Build detail rows */
+    /* ── Detail rows — phone is intentionally excluded ── */
     const fields = [
-      ['Patient',       data.name],
-      ['Phone',         data.phone],
-      ['Health Problem',data.health_problem || data.complaint],
-      ['Date',          data.date],
-      ['Time',          data.timeslot],
-      ['Booked On',     data.booked_on ? data.booked_on.split('T')[0] : ''],
-      ['Valid Till',    data.valid_till],
+      ['Patient',        data.name],
+      ['Health Problem', data.health_problem || data.complaint],
+      ['Date',           data.date],
+      ['Time',           data.timeslot],
+      ['Valid Till',     data.valid_till],
+      ['Booked On',      data.booked_on ? data.booked_on.split('T')[0] : ''],
     ];
     const body = document.getElementById('tk-result-body');
     body.innerHTML = fields
-      .filter(([,v]) => v)
-      .map(([k,v]) =>
+      .filter(([, v]) => v)
+      .map(([k, v]) =>
         `<div class="tr-row"><span class="tr-key">${k}</span><span class="tr-val">${v}</span></div>`
       ).join('');
 
