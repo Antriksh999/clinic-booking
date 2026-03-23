@@ -367,6 +367,14 @@ body{
   cursor:pointer;transition:all 0.12s;
 }
 .tr-new-btn:hover{background:var(--ink);color:#fff}
+/* ─── SLOT LEGEND ─── */
+.slot-legend{display:flex;gap:14px;margin-top:6px;font-family:var(--mono);font-size:9px;color:var(--ink3);letter-spacing:0.5px}
+.legend-item{display:flex;align-items:center;gap:5px}
+.legend-item span{line-height:1}
+.legend-dot{width:8px;height:8px;border-radius:1px;flex-shrink:0}
+.legend-dot.available{background:var(--paper2);border:1px solid var(--border2)}
+.legend-dot.full{background:#ddd;border:1px solid #bbb}
+.legend-dot.selected{background:var(--green-tint);border:1px solid var(--green2)}
 </style>
 </head>
 <body>
@@ -508,9 +516,9 @@ body{
         <label class="form-label">Time Slot <span id="slot-loading" style="color:var(--ink3);font-size:9px;font-family:var(--mono)"></span></label>
         <div class="slot-grid" id="slot-grid"></div>
         <div class="slot-legend">
-          <div class="legend-item"><div class="legend-dot available"></div>Available</div>
-          <div class="legend-item"><div class="legend-dot full"></div>Full (5/5)</div>
-          <div class="legend-item"><div class="legend-dot selected"></div>Selected</div>
+          <div class="legend-item"><div class="legend-dot available"></div><span>Available</span></div>
+          <div class="legend-item"><div class="legend-dot full"></div><span>Full</span></div>
+          <div class="legend-item"><div class="legend-dot selected"></div><span>Selected</span></div>
         </div>
         <input type="hidden" id="f-slot"/>
       </div>
@@ -790,15 +798,15 @@ async function sendMsg() {
   const langCode = (LANG_UI[micLang] || LANG_UI['en-US']).langCode;
 
   /* Fetch available slots for the relevant date.
-     If patient already gave a date (Step 4 done), fetch for that date — else fetch for today.
-     This ensures slot availability is always fresh from server, preventing cross-user double-booking. */
+     Also send raw counts so AI knows which slots are full vs available. */
   let availableSlots = ALL_SLOTS.slice();
+  let slotCountsForAI = {};
   try {
     const slotDate = collectedData.date || today;
     const sr = await fetch(SLOTS_WEBHOOK + '?date=' + slotDate);
     const sd = await sr.json();
-    const counts = sd.slots || {};
-    availableSlots = ALL_SLOTS.filter(s => (counts[s] || 0) < MAX_PER_SLOT);
+    slotCountsForAI = sd.slots || {};
+    availableSlots = ALL_SLOTS.filter(s => (slotCountsForAI[s] || 0) < MAX_PER_SLOT);
   } catch(e) { /* silently fall back to all slots if endpoint unavailable */ }
 
   try {
@@ -808,9 +816,11 @@ async function sendMsg() {
       body: JSON.stringify({
         message:         text,
         history:         chatHistory,
-        today:           today,          /* YYYY-MM-DD for date math */
-        today_full:      todayFull,      /* "Monday, 23 March 2026" — for natural date parsing */
+        today:           today,
+        today_full:      todayFull,
         available_slots: availableSlots,
+        slot_counts:     slotCountsForAI,   /* { "9:00 AM": 3, "10:00 AM": 5 } — AI uses this to say which are full */
+        max_per_slot:    MAX_PER_SLOT,
         lang:            langCode
       })
     });
